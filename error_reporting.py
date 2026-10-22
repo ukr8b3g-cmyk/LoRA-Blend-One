@@ -10,6 +10,14 @@ from .core.errors import MergeError
 
 
 MESSAGES = {
+    "nonfinite_input": (
+        "A LoRA factor, alpha, or blend coefficient contains NaN or Inf.", "LoRA因子・alpha・合成係数にNaN／Infがあります。",
+        "Check the listed file/layer and strengths. Select a valid LoRA or turn OFF the affected slot.",
+        "表示されたファイル・層と強度を確認し、正常なLoRAに変更するか該当枠をOFFにしてください。"),
+    "nonfinite_output": (
+        "The selected storage type produced NaN or Inf in the output.", "指定保存精度への変換後にNaN／Infが検出されました。",
+        "Check the listed layer and strengths; select FP32 or BF16 when FP16 overflows. Nothing was saved.",
+        "対象層と強度を確認し、FP16であふれる場合はFP32またはBF16を選んでください。ファイルは保存していません。"),
     "moss_mixed": (
         "A selected LoRA is not recognized as MOSS-Image.", "MOSS-Image用と認識されないLoRAが混在しています。",
         "Turn OFF the listed LoRA, or select only LoRAs for the same base model.", "表示されたLoRAをOFFにするか、同じベースモデル用のLoRAに変更してください。"),

@@ -212,6 +212,8 @@ class LoRABlendOne:
             except Exception as error:
                 if isinstance(error, (MemoryError, torch.cuda.OutOfMemoryError)) or _is_interruption(error):
                     raise
+                if isinstance(error, MergeError):
+                    raise MergeError(error.code, [name], error.detail) from error
                 code = "missing_file" if isinstance(error, FileNotFoundError) else "read_failed"
                 raise MergeError(code, [name], f"{name}: {error}") from error
 
@@ -276,6 +278,7 @@ class LoRABlendOne:
         metadata = build_metadata(recipe)
         report_dict = report_to_dict(merge_report)
         report_dict["recipe"] = recipe
+        warnings_before_save = len(merge_report.warnings)
 
         try:
             full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
@@ -306,6 +309,9 @@ class LoRABlendOne:
             f"layers={len(merge_report.layer_reports)} | rank={min_rank}-{max_rank} | "
             f"gate_conflicts={merge_report.gate_conflicts} | warnings={warning_count}"
         )
+        save_warnings = merge_report.warnings[warnings_before_save:]
+        if save_warnings:
+            info += "\n" + "\n".join(save_warnings)
         return {"ui": {"text": [info], "model_detection": [model_label]}, "result": (info,)}
 
 

@@ -158,6 +158,20 @@ class NodeIntegrationTests(unittest.TestCase):
             split_out = output / "loras" / "split_00001_.safetensors"
             self.assertTrue(split_out.exists())
             self.assertFalse(split_out.with_suffix(".safetensors.report.json").exists())
+            original_open = Path.open
+            def report_failure(path, *args, **kwargs):
+                if '.report.json' in path.name:
+                    raise OSError('injected report failure')
+                return original_open(path, *args, **kwargs)
+            with patch.object(Path, 'open', report_failure):
+                warning_result = Blend().merge(
+                    sources, "16", "loras/report_warning", device="cpu", write_report=True,
+                )
+            self.assertIn('Saved', warning_result['result'][0])
+            self.assertIn('warnings=1', warning_result['result'][0])
+            self.assertIn('report could not be saved', warning_result['ui']['text'][0])
+            self.assertIn('injected report failure', warning_result['ui']['text'][0])
+            self.assertTrue((output / 'loras' / 'report_warning_00001_.safetensors').is_file())
             with safe_open(str(out), framework="pt", device="cpu") as old_file, safe_open(str(split_out), framework="pt", device="cpu") as split_file:
                 self.assertEqual(set(old_file.keys()), set(split_file.keys()))
                 for key in old_file.keys():

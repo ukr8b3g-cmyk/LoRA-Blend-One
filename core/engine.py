@@ -37,6 +37,8 @@ def is_gate_target(target: str) -> bool:
 
 def resolve_weights(raw_percentages: list[float], mode: str = "normalize") -> list[float]:
     vals = [float(x) / 100.0 for x in raw_percentages]
+    if not all(math.isfinite(x) for x in vals) or not math.isfinite(sum(vals)):
+        raise ValueError("Weights and their total must be finite (no NaN or Inf)")
     if mode == "direct":
         if all(abs(x) < 1e-15 for x in vals):
             raise ValueError("All direct weights are zero")
@@ -152,7 +154,7 @@ def _validate_sources(infos: list[SourceInfo], compatibility_mode: str) -> list[
             preview = ", ".join(info.unsupported[:5])
             extra = " ..." if len(info.unsupported) > 5 else ""
             raise MergeError("unsupported_adapter", [info.name],
-                f"{info.name} contains unsupported adapter tensors (DoRA/LoCon/LyCORIS/full diff): {preview}{extra}",
+                f"{info.name} contains unsupported adapter tensors: {preview}{extra}",
                 source_paths=[str(info.path)],
             )
         warnings.extend(f"{info.name}: {w}" for w in info.warnings)
@@ -357,8 +359,8 @@ def _merge_krea2_sources(infos, weights, settings, warnings, progress, cancel_ch
                 report.warnings.append(f"{target}: CUDA OOM; retried on CPU with identical Krea2 settings")
                 up2, down2, out_rank, energy, exact, conflict = run_on(device)
             up, down = restore_factor_layout(up2, down2, template)
-            output[f"{target}{template.style.up_suffix}"] = up.detach().to(device="cpu", dtype=storage_dtype).contiguous()
-            output[f"{target}{template.style.down_suffix}"] = down.detach().to(device="cpu", dtype=storage_dtype).contiguous()
+            output[f"{target}{template.style.up_suffix}"] = _storage_factor(up, storage_dtype, target, contributors, infos)
+            output[f"{target}{template.style.down_suffix}"] = _storage_factor(down, storage_dtype, target, contributors, infos)
             output[f"{target}.alpha"] = torch.tensor(float(out_rank), dtype=torch.float32)
             report.layer_reports.append(LayerReport(
                 target=target, contributors=len(contributors), method=report.method, device=device.type,
@@ -370,6 +372,17 @@ def _merge_krea2_sources(infos, weights, settings, warnings, progress, cancel_ch
             if progress:
                 progress(index + 1, len(targets))
     return output, report
+
+
+def _storage_factor(tensor, dtype, target, contributors, infos):
+    tensor = tensor.detach().to(device="cpu", dtype=dtype).contiguous()
+    if not torch.isfinite(tensor).all().item():
+        sources = [infos[index] for index, _, _ in contributors]
+        raise MergeError("nonfinite_output", [info.name for info in sources],
+                         f"{target}: output contains NaN or Inf after conversion to {dtype}; "
+                         "check strengths/input values or select a storage type with a wider range",
+                         source_paths=[str(info.path) for info in sources])
+    return tensor
 
 
 def merge_sources(
@@ -386,6 +399,16 @@ def merge_sources(
     if not infos:
         raise ValueError("No LoRAs selected")
     method = resolve_method(settings.method)
+    for info, weight in zip(infos, weights):
+        for spec in info.layers.values():
+            coefficient = weight * settings.output_scale * spec.effective_scale
+            gate_coefficient = (coefficient * settings.krea2_gate_strength
+                                if method == "Krea2 Gate-Aware" and is_gate_target(spec.target) else coefficient)
+            if not all(math.isfinite(value) for value in (weight, settings.output_scale, spec.effective_scale,
+                                                        coefficient, gate_coefficient)):
+                raise MergeError("nonfinite_input", [info.name],
+                                 f"{info.name}: {spec.target}: weight/alpha/output scale produces NaN or Inf",
+                                 source_paths=[str(info.path)])
     warnings = _validate_sources(infos, compatibility_mode)
     if method == "Krea2 Gate-Aware":
         if any(info.architecture_hint == "moss_image" for info in infos):
@@ -484,8 +507,8 @@ def merge_sources(
                 up2, down2, out_rank, energy, exact, gate_conflicts = run_on(device)
 
             up, down = restore_factor_layout(up2, down2, template)
-            up = up.detach().to(device="cpu", dtype=storage_dtype).contiguous()
-            down = down.detach().to(device="cpu", dtype=storage_dtype).contiguous()
+            up = _storage_factor(up, storage_dtype, target, contributors, infos)
+            down = _storage_factor(down, storage_dtype, target, contributors, infos)
             alpha = torch.tensor(float(out_rank), dtype=torch.float32)
             output[f"{target}{template.style.up_suffix}"] = up
             output[f"{target}{template.style.down_suffix}"] = down

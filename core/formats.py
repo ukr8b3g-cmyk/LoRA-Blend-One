@@ -12,6 +12,7 @@ from safetensors import safe_open
 
 from .types import FactorStyle, LayerSpec, SourceInfo
 from .moss import normalize_moss_layers
+from .errors import MergeError
 
 
 # Ordered from most specific to least specific to avoid suffix ambiguity.
@@ -196,6 +197,10 @@ def scan_lora(path: str | Path, *, compute_hash: bool = True) -> SourceInfo:
             rank = int(down_shape[0])
             out_dim, in_flat, layout, down_tail, up_tail = _validate_shapes(target, down_shape, up_shape)
             scale, alpha_key = _effective_scale(handle, keyset, target, rank, adapter_config)
+            if not math.isfinite(scale):
+                raise MergeError("nonfinite_input", [path.name],
+                                 f"{path.name}: {target}: alpha/effective scale contains NaN or Inf",
+                                 source_paths=[str(path)])
 
             if target in layers:
                 raise ValueError(f"Ambiguous duplicate LoRA factor styles for target {target!r}")
@@ -218,6 +223,11 @@ def scan_lora(path: str | Path, *, compute_hash: bool = True) -> SourceInfo:
             )
 
         moss_layers = normalize_moss_layers(layers, handle, metadata, adapter_config)
+        if moss_layers is None:
+            consumed = {key for spec in layers.values()
+                        for key in (spec.down_key, spec.up_key, spec.alpha_key) if key is not None}
+            unused = sorted(keyset - consumed)
+            unsupported.extend(unused)
         if moss_layers is not None:
             layers = moss_layers
 
@@ -261,17 +271,26 @@ class OpenedSources:
 
     def read_factors(self, source_index: int, spec: LayerSpec) -> tuple[torch.Tensor, torch.Tensor]:
         handle = self.handles[source_index]
+        info = self.infos[source_index]
+
+        def checked(tensor, key):
+            if not torch.isfinite(tensor).all().item():
+                raise MergeError("nonfinite_input", [info.name],
+                                 f"{info.name}: {key}: input factor contains NaN or Inf",
+                                 source_paths=[str(info.path)])
+            return tensor
+
         if spec.components:
             ups, downs = [], []
             for part in spec.components:
-                down = handle.get_tensor(part.down_key)
-                up = handle.get_slice(part.up_key)[part.row_start:part.row_start + part.row_count, :]
+                down = checked(handle.get_tensor(part.down_key), part.down_key)
+                up = checked(handle.get_slice(part.up_key)[part.row_start:part.row_start + part.row_count, :], part.up_key)
                 if part.columns is not None:
                     up = up[:, part.columns]
                     down = down[list(part.columns), :]
                 ups.append(up.float() * part.scale)
                 downs.append(down.float())
             return torch.cat(ups, dim=1), torch.cat(downs, dim=0)
-        down = handle.get_tensor(spec.down_key)
-        up = handle.get_tensor(spec.up_key)
+        down = checked(handle.get_tensor(spec.down_key), spec.down_key)
+        up = checked(handle.get_tensor(spec.up_key), spec.up_key)
         return up, down

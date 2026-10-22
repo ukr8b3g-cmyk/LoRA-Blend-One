@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 
+import torch
 from safetensors import safe_open
 from safetensors.torch import save_file
 
@@ -17,6 +19,9 @@ def save_verified(
     write_report: bool = True,
 ) -> Path:
     output_path = Path(output_path)
+    for key, tensor in tensors.items():
+        if not torch.isfinite(tensor).all().item():
+            raise ValueError(f"{output_path.name}: {key}: cannot save NaN or Inf")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = output_path.with_name(output_path.name + ".partial")
     try:
@@ -35,8 +40,19 @@ def save_verified(
         os.replace(temp_path, output_path)
         if write_report and report is not None:
             sidecar = output_path.with_suffix(output_path.suffix + ".report.json")
-            with sidecar.open("w", encoding="utf-8") as f:
-                json.dump(report, f, ensure_ascii=False, indent=2)
+            report_temp = sidecar.with_name(sidecar.name + ".partial")
+            try:
+                with report_temp.open("w", encoding="utf-8") as f:
+                    json.dump(report, f, ensure_ascii=False, indent=2)
+                os.replace(report_temp, sidecar)
+            except (OSError, TypeError, ValueError) as error:
+                warning = f"LoRA saved at {output_path}; report could not be saved at {sidecar}: {error}"
+                report.setdefault("warnings", []).append(warning)
+                logging.getLogger(__name__).warning(warning)
+                try:
+                    report_temp.unlink(missing_ok=True)
+                except OSError:
+                    pass
         return output_path
     except Exception:
         try:
