@@ -5,7 +5,7 @@
 | Check | Result |
 | --- | --- |
 | Python suite: standard core, Krea2, MOSS, and node integration | 29 tests passed |
-| JavaScript UI suite: locale, store serialization/reload, legacy recovery, template | 3 tests passed |
+| JavaScript UI suite: locale, store serialization/reload, legacy recovery, template, inline source toggles | 5 tests passed |
 | Node integration after adding the model-status UI payload | Passed; split/legacy MOSS labels and generic label checked |
 | Model-status drawing with Advanced loaded in either extension order | JavaScript VM passed |
 | Original widget values/order through accordion serialization | JavaScript VM passed |
@@ -13,6 +13,7 @@
 | Local MOSS inventory | 10 Standard LoRA files recognized |
 | Live Chrome: template, Advanced, English/Japanese switching, save/close/reopen | Passed; 45 saved widget settings and 44 exported API settings matched |
 | Real two-input MOSS blend, file reload, and GPU image generation | Passed; details below |
+| Live Chrome: two-row source layout and OFF → ON blending | Passed; four-source then five-source saves and recipes checked |
 
 The eight MOSS cases check fused/split QKV equivalence across Weighted/TIES/DARE/DELLA, alpha scaling, exact zero-column removal, combined in-file contributions, ambiguous aliases, unsupported tensors, model-family isolation, text-embedder QKV, and save/rank/metadata round trips.
 
@@ -49,12 +50,31 @@ The generation workflow was a copy of the user's existing workflow. It retained 
 
 Live Chrome checks also covered template loading, both Advanced controls, English → Japanese → English switching, and workflow save/close/reopen. Custom Rank 48, Energy Target 0.975, and Storage Dtype BF16 survived reopening. All 45 widget values were saved in the correct positional/named order, and all 44 API settings matched those values and the installed input schemas. Legacy corrupted-file recovery was checked in the JavaScript suite; direct browser import of that old file was not exercised.
 
+## Inline source toggles in live Chrome — 2026-10-22
+
+After restarting ComfyUI, the existing Chrome tab showed each LoRA as two rows: an ON/OFF switch embedded in the filename row, followed by its weight row. A duplicate of the current workflow was used for testing. Its five MOSS inputs were LUC Epoch12, tkn epoch9, OST Moss-10, nanmokaken base v1, and silvana style epoch07, with weights 30 / 25 / 15 / 30 / 20. Both runs used Auto → Weighted, normalize, and Output Rank 32.
+
+| Check | OFF | Back ON |
+| --- | --- | --- |
+| Slot 5 switch | Disabled | Enabled |
+| Slot 5 filename / weight | silvana style epoch07 / 20 retained | Same file / 20 retained |
+| Execution and save | Success; 4 sources | Success; 5 sources |
+| Saved recipe | silvana excluded | silvana included |
+| Saved size | 145,183,088 bytes | 145,183,336 bytes |
+| Family / layers / ranks | MOSS-Image / 246 / 32–32 | MOSS-Image / 246 / 32–32 |
+| Finite saved tensors / warnings | 738 of 738 / 0 | 738 of 738 / 0 |
+
+The submitted source-node inputs retained the filename and weight while only `enabled_5` changed. The independent saved-file check confirmed that source inclusion matched the switch. The original workflow and its settings were preserved, and its view was restored after testing. This check covers the switches, blending, and saving; image generation was verified separately in the earlier SFT check.
+
+The automated cases also cover disabled unavailable files, legacy defaults, appended switch serialization without shifted file/weight values, switch-state round trips, Advanced visibility, and Krea2's requirement for two enabled slots.
+
 ## Reproduce
 
 Run with the Python environment used by your ComfyUI installation:
 
 ```sh
 python -m unittest discover -s tests -p "test_*.py" -v
+node --test tests/test_ui.mjs tests/test_source_toggles.mjs
 python tools/validate_moss_local.py --help
 ```
 

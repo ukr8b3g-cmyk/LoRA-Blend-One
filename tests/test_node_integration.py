@@ -33,7 +33,9 @@ class NodeIntegrationTests(unittest.TestCase):
 
             folder_paths = types.ModuleType("folder_paths")
             folder_paths.get_filename_list = lambda category: sorted(p.name for p in loras.glob("*.safetensors"))
+            resolved_names = []
             def get_full_path_or_raise(category, name):
+                resolved_names.append(name)
                 p = loras / name
                 if not p.is_file():
                     raise FileNotFoundError(name)
@@ -132,6 +134,15 @@ class NodeIntegrationTests(unittest.TestCase):
             self.assertFalse(blend_schema["optional"]["write_report"][1]["default"])
             self.assertTrue(blend_schema["optional"]["write_report"][1]["advanced"])
             self.assertNotIn("weight_mode", source_schema["optional"])
+            enabled_keys = [f"enabled_{idx}" for idx in range(1, 9)]
+            old_source_keys = [key for idx in range(3, 9) for key in (f"lora_{idx}", f"weight_{idx}")]
+            self.assertEqual(list(schema["optional"])[-8:], enabled_keys)
+            self.assertEqual(list(source_schema["optional"]), old_source_keys + enabled_keys)
+            for key in enabled_keys:
+                self.assertEqual(source_schema["optional"][key], schema["optional"][key])
+                self.assertEqual(schema["optional"][key][0], "BOOLEAN")
+                self.assertTrue(schema["optional"][key][1]["default"])
+                self.assertNotIn(key, blend_schema["optional"])
 
             sources = Sources().select(
                 "l0.safetensors", 20.0, "l1.safetensors", 30.0,
@@ -170,6 +181,68 @@ class NodeIntegrationTests(unittest.TestCase):
             legacy = Node().merge("moss.safetensors", 100., "(none)", 0., "Auto", "loras/moss_legacy_status",
                                   device="cpu", hash_inputs=False)
             self.assertEqual(legacy["ui"]["model_detection"], ["MOSS-Image"])
+
+            selection = dict(
+                lora_1="moss.safetensors", weight_1=100.,
+                lora_2="missing.safetensors", weight_2=35., enabled_2=False,
+                lora_3="l0.safetensors", weight_3=25., enabled_3=False,
+                lora_8="also_missing.safetensors", weight_8=70., enabled_8=False,
+            )
+            unchanged_selection = dict(selection)
+            self.assertIs(Sources.VALIDATE_INPUTS(**selection), True)
+            self.assertIn("LoRA 2", Sources.VALIDATE_INPUTS(**(selection | {"enabled_2": True})))
+            self.assertIn("unavailable", Sources.VALIDATE_INPUTS(**(selection | {"enabled_2": True})))
+            selected = Sources().select(**selection)[0]
+            self.assertEqual(selection, unchanged_selection)
+            self.assertEqual(selected, ((1, "moss.safetensors", 100.),))
+            resolved_names.clear()
+            toggled = Blend().merge(selected, "Auto", "loras/toggled",
+                                    device="cpu", hash_inputs=False)
+            self.assertEqual(toggled["ui"]["model_detection"], ["MOSS-Image"])
+            self.assertEqual(resolved_names, ["moss.safetensors"])
+            with safe_open(str(output / "loras" / "toggled_00001_.safetensors"), framework="pt", device="cpu") as f:
+                recipe = json.loads(f.metadata()["lbo_recipe_json"])
+                self.assertEqual(recipe["summary"]["source_count"], 1)
+                self.assertEqual([x["name"] for x in recipe["sources"]], ["moss.safetensors"])
+                self.assertEqual([x["weight"] for x in recipe["sources"]], [1.])
+
+            resolved_names.clear()
+            legacy_toggled = Node().merge(**selection, output_rank="Auto", filename_prefix="loras/legacy_toggled",
+                                          device="cpu", hash_inputs=False, write_report=False)
+            self.assertEqual(legacy_toggled["ui"]["model_detection"], ["MOSS-Image"])
+            self.assertEqual(resolved_names, ["moss.safetensors"])
+            with safe_open(str(output / "loras" / "legacy_toggled_00001_.safetensors"), framework="pt", device="cpu") as f:
+                recipe = json.loads(f.metadata()["lbo_recipe_json"])
+                self.assertEqual(recipe["summary"]["source_count"], 1)
+            with self.assertRaisesRegex(ValueError, "MOSS-Image LoRAs"):
+                Node().merge("moss.safetensors", 100., "l0.safetensors", 0., "Auto", "loras/zero_still_selected",
+                             device="cpu", hash_inputs=False)
+
+            all_off = dict(lora_1="moss.safetensors", weight_1=100., lora_2="l0.safetensors", weight_2=50.,
+                           enabled_1=False, enabled_2=False)
+            with self.assertRaisesRegex(ValueError, "at least one enabled LoRA"):
+                Sources().select(**all_off)
+            with self.assertRaisesRegex(ValueError, "at least one enabled LoRA"):
+                Node().merge(**all_off, output_rank="Auto", filename_prefix="loras/all_off", device="cpu")
+
+            krea_toggled_sources = Sources().select(
+                "l0.safetensors", 20., "missing.safetensors", 40., enabled_2=False,
+                lora_3="l1.safetensors", weight_3=30.,
+            )[0]
+            self.assertEqual([row[0] for row in krea_toggled_sources], [1, 3])
+            resolved_names.clear()
+            Blend().merge(krea_toggled_sources, "Auto", "loras/krea2_toggled",
+                          merge_method="Krea2 Gate-Aware", device="cpu", hash_inputs=False)
+            self.assertEqual(resolved_names, ["l0.safetensors", "l1.safetensors"])
+            with safe_open(str(output / "loras" / "krea2_toggled_00001_.safetensors"), framework="pt", device="cpu") as f:
+                recipe = json.loads(f.metadata()["lbo_recipe_json"])
+                self.assertEqual(recipe["summary"]["source_count"], 2)
+                self.assertEqual([x["name"] for x in recipe["sources"]], ["l0.safetensors", "l1.safetensors"])
+                self.assertEqual([x["weight"] for x in recipe["sources"]], [0.2, 0.3])
+            for invalid_count in (krea_toggled_sources[:1], krea_toggled_sources + ((4, "l2.safetensors", 10.),)):
+                with self.assertRaisesRegex(ValueError, "exactly two selected LoRA slots"):
+                    Blend().merge(invalid_count, "Auto", "loras/krea2_invalid_count",
+                                  merge_method="Krea2 Gate-Aware", device="cpu", hash_inputs=False)
 
 
 if __name__ == "__main__":

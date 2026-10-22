@@ -1,5 +1,6 @@
 import { app } from '../../scripts/app.js';
 import { text, watchLocale } from './i18n.js';
+import { installSourceToggles } from './source_toggles.js';
 
 const NODE_NAMES = new Set(['LoRABlendSources', 'LoRABlendOneSplit']);
 const STATE_KEY = 'lora_blend_advanced_open';
@@ -133,6 +134,7 @@ app.registerExtension({
         const previous = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function (...args) {
             const result = previous?.apply(this, args);
+            if (nodeData.name === 'LoRABlendSources') installSourceToggles(this);
             installAccordion(this, nodeData);
             return result;
         };

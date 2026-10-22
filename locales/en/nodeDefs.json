@@ -178,6 +178,38 @@
       "krea2_normal_compression": {
         "name": "Krea2 Normal Compression",
         "tooltip": "Krea2 only: optionally compress ordinary matched layers to the larger input rank."
+      },
+      "enabled_1": {
+        "name": "Enable LoRA 1",
+        "tooltip": "Enable LoRA 1. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_2": {
+        "name": "Enable LoRA 2",
+        "tooltip": "Enable LoRA 2. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_3": {
+        "name": "Enable LoRA 3",
+        "tooltip": "Enable LoRA 3. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_4": {
+        "name": "Enable LoRA 4",
+        "tooltip": "Enable LoRA 4. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_5": {
+        "name": "Enable LoRA 5",
+        "tooltip": "Enable LoRA 5. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_6": {
+        "name": "Enable LoRA 6",
+        "tooltip": "Enable LoRA 6. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_7": {
+        "name": "Enable LoRA 7",
+        "tooltip": "Enable LoRA 7. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_8": {
+        "name": "Enable LoRA 8",
+        "tooltip": "Enable LoRA 8. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
       }
     },
     "outputs": {
@@ -254,6 +286,38 @@
       "weight_8": {
         "name": "Weight 8 (%)",
         "tooltip": "Weight for LoRA 8."
+      },
+      "enabled_1": {
+        "name": "Enable LoRA 1",
+        "tooltip": "Enable LoRA 1. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_2": {
+        "name": "Enable LoRA 2",
+        "tooltip": "Enable LoRA 2. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_3": {
+        "name": "Enable LoRA 3",
+        "tooltip": "Enable LoRA 3. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_4": {
+        "name": "Enable LoRA 4",
+        "tooltip": "Enable LoRA 4. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_5": {
+        "name": "Enable LoRA 5",
+        "tooltip": "Enable LoRA 5. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_6": {
+        "name": "Enable LoRA 6",
+        "tooltip": "Enable LoRA 6. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_7": {
+        "name": "Enable LoRA 7",
+        "tooltip": "Enable LoRA 7. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
+      },
+      "enabled_8": {
+        "name": "Enable LoRA 8",
+        "tooltip": "Enable LoRA 8. OFF keeps its filename and weight while excluding it from file validation, loading, and blending. Existing workflows default to ON."
       }
     },
     "outputs": {

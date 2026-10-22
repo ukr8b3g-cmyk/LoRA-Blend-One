@@ -11,6 +11,7 @@ Use two connected nodes to choose up to eight LoRAs, set their strengths, and sa
 ## Features
 
 - Two-node layout: **LoRA Blend Sources → LoRA Blend One**
+- Inline ON/OFF switches for each LoRA, preserving its filename and weight rows
 - Weighted, TIES, DARE, and DELLA blending
 - MOSS-Image Base/SFT Standard LoRA support, with automatic detection and QKV normalization
 - Krea2 Gate-Aware blending with explicit gate-conflict controls
@@ -50,6 +51,8 @@ ComfyUI/output/loras/LoRA_Blend_One_00001_.safetensors
 To use the result in generation, copy it to `ComfyUI/models/loras/` or another configured LoRA directory, refresh the file list, and select it in your usual LoRA loader.
 
 Open **Advanced** on the Sources node to select LoRAs 3–8. Seed (default 0), numerical controls, and diagnostics are in Advanced on the merge node. The detailed JSON report defaults to off on this two-node path.
+
+Each LoRA keeps two rows: its filename, with an inline **ON/OFF** switch, and its weight. OFF retains the filename and weight while excluding that slot from file validation, loading, and blending. Existing workflows default to ON.
 
 The original `LoRABlendOne` node remains available as **LoRA Blend One (Legacy)** for existing workflows.
 
@@ -126,7 +129,7 @@ Output files use ComfyUI-compatible `diffusion_model.<module>.lora_A/B.weight` k
 
 ### Krea2 Gate-Aware
 
-Select **Krea2 Gate-Aware** explicitly and provide exactly two LoRAs.
+Select **Krea2 Gate-Aware** explicitly and turn ON exactly two LoRA slots.
 
 Defaults use gate strength 0.5, `pick_strongest` for opposing gate deltas below cosine −0.05, and rank-32 compression for non-conflicting attention gates. With Output Rank Auto, ordinary matched layers and single-source layers retain exact factors by default.
 
@@ -141,7 +144,7 @@ A numeric Output Rank caps every Krea2 output layer; dedicated gate/normal compr
 
 ## Validation and limitations
 
-The local suite passed **29 Python tests** and **3 JavaScript UI tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, node integration, locale switching, and workflow serialization/recovery.
+The local suite passed **29 Python tests** and **5 JavaScript UI tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, node integration, locale switching, inline source switches, and workflow serialization/recovery.
 
 Three real MOSS LoRAs with ranks **128 / 32 / 32** were blended on CPU at direct coefficients **0.8 / 0.4 / 0.2**. Both saved outputs reopened successfully; the installed ComfyUI parser loaded all **252 layers**, and its real weight adapter applied Q/O patches.
 
@@ -170,6 +173,17 @@ The blend and generation jobs completed successfully in 3.774 s and 19.079 s res
 Other LoRAs from the original generation workflow remained enabled. This confirms loading and generation under those conditions; it is not an isolated visual-quality A/B comparison or a guarantee for every MOSS LoRA, MOSS-Image Base, or other model family.
 
 Live Chrome checks also passed for template loading, Advanced expansion/collapse, English → Japanese → English switching, and workflow save/close/reopen. Custom Rank 48, Energy Target 0.975, and Storage Dtype BF16 remained intact; all 44 exported API settings matched the saved values and declared input types.
+
+### Inline ON/OFF: live Chrome verification
+
+On **2026-10-22**, after restarting ComfyUI, the switches were exercised in an existing Chrome tab using a copy of the current workflow. Each LoRA kept its two filename/weight rows, with the switch inside the filename row. LoRA 5 retained `silvana-s-style-moss-image-sft-epoch-07.safetensors` and weight **20** throughout:
+
+| LoRA 5 switch | Saved result |
+| --- | --- |
+| OFF | Four sources; the saved recipe excluded LoRA 5 |
+| ON again | Five sources; the saved recipe included LoRA 5 again |
+
+Both blends saved successfully as MOSS-Image LoRAs with **246 layers**, every rank **32**, all **738 tensors finite**, and no blend warnings. The original workflow was preserved and restored in Chrome afterward. This check covered the switches, blending, and saved outputs; image generation is documented in the preceding section.
 
 Run the automated suite with ComfyUI's Python environment:
 

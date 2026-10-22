@@ -26,10 +26,10 @@ test('custom UI follows ComfyUI locale without changing saved settings', () => {
     const app = { ui: { settings }, graph: { setDirtyCanvas() {} },
         registerExtension: extension => extensions.push(extension) };
     const context = vm.createContext({ app, queueMicrotask });
-    for (const file of ['i18n.js', 'accordion.js', 'model_status.js']) {
+    for (const file of ['i18n.js', 'source_toggles.js', 'accordion.js', 'model_status.js']) {
         const source = uiSource(file)
             .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
-        vm.runInContext(`{ ${source}\n${file === 'i18n.js' ? 'globalThis.text = text; globalThis.watchLocale = watchLocale;' : ''} }`, context);
+        vm.runInContext(`{ ${source}\n${file === 'i18n.js' ? 'globalThis.text = text; globalThis.watchLocale = watchLocale;' : file === 'source_toggles.js' ? 'globalThis.installSourceToggles = installSourceToggles;' : ''} }`, context);
     }
     class Node {
         constructor() {
@@ -83,9 +83,9 @@ test('store export, reload and legacy recovery preserve each setting by name', (
     const extensions = [];
     const app = { graph: { setDirtyCanvas() {} }, registerExtension: e => extensions.push(e) };
     const context = vm.createContext({ app, queueMicrotask });
-    for (const file of ['i18n.js', 'accordion.js']) {
+    for (const file of ['i18n.js', 'source_toggles.js', 'accordion.js']) {
         const source = uiSource(file).replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
-        vm.runInContext(`{ ${source}\n${file === 'i18n.js' ? 'globalThis.text = text; globalThis.watchLocale = watchLocale;' : ''} }`, context);
+        vm.runInContext(`{ ${source}\n${file === 'i18n.js' ? 'globalThis.text = text; globalThis.watchLocale = watchLocale;' : file === 'source_toggles.js' ? 'globalThis.installSourceToggles = installSourceToggles;' : ''} }`, context);
     }
     const required = { output_rank: [['Auto', '16'], { default: '16' }],
         filename_prefix: ['STRING', { default: 'blend' }] };

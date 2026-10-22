@@ -31,7 +31,8 @@ from .core import (
 
 NONE = "(none)"
 VERSION = "0.1.0"
-SOURCE_OPTIONAL_KEYS = {key for idx in range(3, 9) for key in (f"lora_{idx}", f"weight_{idx}")}
+SOURCE_OPTIONAL_KEYS = ({key for idx in range(3, 9) for key in (f"lora_{idx}", f"weight_{idx}")}
+                        | {f"enabled_{idx}" for idx in range(1, 9)})
 
 
 def _lora_choices():
@@ -44,9 +45,11 @@ def _default_lora(index: int):
     return names[index] if len(names) > index else NONE
 
 
-def _selected_slots(values):
+def _selected_slots(values, enabled=None):
     rows = []
     for slot, (name, weight) in enumerate(values, start=1):
+        if enabled is not None and not enabled.get(f"enabled_{slot}", True):
+            continue
         if name and name != NONE:
             rows.append((slot, name, float(weight)))
     return rows
@@ -133,6 +136,8 @@ class LoRABlendOne:
             "krea2_gate_compression": (["off", "attn_to_gate_only", "all_gates"], {"default": "attn_to_gate_only", "tooltip": "Krea2 only: compress non-conflicting attention gates or all gates.", **advanced_common}),
             "krea2_normal_compression": (["off", "max_input_rank"], {"default": "off", "tooltip": "Krea2 only: optionally compress ordinary matched layers to the larger input rank.", **advanced_common}),
         })
+        for idx in range(1, 9):
+            optional[f"enabled_{idx}"] = ("BOOLEAN", {"default": True, "tooltip": f"Enable LoRA {idx}. Disabled slots keep their file and weight but are excluded from blending."})
         return {"required": required, "optional": optional}
 
     @classmethod
@@ -162,9 +167,9 @@ class LoRABlendOne:
         rows = [(lora_1, weight_1), (lora_2, weight_2)]
         for idx in range(3, 9):
             rows.append((kwargs.get(f"lora_{idx}", NONE), kwargs.get(f"weight_{idx}", 0.0)))
-        selected = _selected_slots(rows)
+        selected = _selected_slots(rows, kwargs)
         if not selected:
-            raise ValueError("LoRA Blend One: select at least one LoRA.")
+            raise ValueError("LoRA Blend One: select at least one enabled LoRA.")
         krea2 = kwargs.get("merge_method") == "Krea2 Gate-Aware"
         if krea2 and len(selected) != 2:
             raise ValueError("Krea2 Gate-Aware requires exactly two selected LoRA slots.")
@@ -279,13 +284,28 @@ class LoRABlendSources:
             "optional": {key: value for key, value in schema["optional"].items() if key in SOURCE_OPTIONAL_KEYS},
         }
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, lora_1=NONE, lora_2=NONE, **kwargs):
+        names = [lora_1, lora_2] + [kwargs.get(f"lora_{idx}", NONE) for idx in range(3, 9)]
+        choices = _lora_choices()
+        for idx, name in enumerate(names, start=1):
+            if not kwargs.get(f"enabled_{idx}", True) or not name or name == NONE:
+                continue
+            if name not in choices:
+                return f"LoRA {idx}: selected file is unavailable: {name}. Choose an installed LoRA or turn this slot off."
+            try:
+                folder_paths.get_full_path_or_raise("loras", name)
+            except FileNotFoundError:
+                return f"LoRA {idx}: selected file is unavailable: {name}. Choose an installed LoRA or turn this slot off."
+        return True
+
     def select(self, lora_1, weight_1, lora_2, weight_2, **kwargs):
         rows = [(lora_1, weight_1), (lora_2, weight_2)]
         for idx in range(3, 9):
             rows.append((kwargs.get(f"lora_{idx}", NONE), kwargs.get(f"weight_{idx}", 0.0)))
-        selected = _selected_slots(rows)
+        selected = _selected_slots(rows, kwargs)
         if not selected:
-            raise ValueError("LoRA Blend Sources: select at least one LoRA.")
+            raise ValueError("LoRA Blend Sources: select at least one enabled LoRA.")
         return (tuple(selected),)
 
 

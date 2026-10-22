@@ -178,6 +178,38 @@
       "krea2_normal_compression": {
         "name": "Krea2 通常層圧縮",
         "tooltip": "Krea2専用。通常レイヤーを入力の大きい方のランクに圧縮します。"
+      },
+      "enabled_1": {
+        "name": "LoRA 1 有効",
+        "tooltip": "LoRA 1のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_2": {
+        "name": "LoRA 2 有効",
+        "tooltip": "LoRA 2のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_3": {
+        "name": "LoRA 3 有効",
+        "tooltip": "LoRA 3のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_4": {
+        "name": "LoRA 4 有効",
+        "tooltip": "LoRA 4のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_5": {
+        "name": "LoRA 5 有効",
+        "tooltip": "LoRA 5のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_6": {
+        "name": "LoRA 6 有効",
+        "tooltip": "LoRA 6のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_7": {
+        "name": "LoRA 7 有効",
+        "tooltip": "LoRA 7のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_8": {
+        "name": "LoRA 8 有効",
+        "tooltip": "LoRA 8のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
       }
     },
     "outputs": {
@@ -254,6 +286,38 @@
       "weight_8": {
         "name": "比率 8 (%)",
         "tooltip": "LoRA 8の比率です。"
+      },
+      "enabled_1": {
+        "name": "LoRA 1 有効",
+        "tooltip": "LoRA 1のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_2": {
+        "name": "LoRA 2 有効",
+        "tooltip": "LoRA 2のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_3": {
+        "name": "LoRA 3 有効",
+        "tooltip": "LoRA 3のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_4": {
+        "name": "LoRA 4 有効",
+        "tooltip": "LoRA 4のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_5": {
+        "name": "LoRA 5 有効",
+        "tooltip": "LoRA 5のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_6": {
+        "name": "LoRA 6 有効",
+        "tooltip": "LoRA 6のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_7": {
+        "name": "LoRA 7 有効",
+        "tooltip": "LoRA 7のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
+      },
+      "enabled_8": {
+        "name": "LoRA 8 有効",
+        "tooltip": "LoRA 8のON/OFF。OFFでもファイル名と比率を保持し、ファイル検証・読み込み・合成から除外します。既存ワークフローではONです。"
       }
     },
     "outputs": {
