@@ -27,6 +27,8 @@ from .core import (
     save_verified,
     scan_lora,
 )
+from .core.errors import MergeError
+from .error_reporting import publish_failure
 
 
 NONE = "(none)"
@@ -53,6 +55,16 @@ def _selected_slots(values, enabled=None):
         if name and name != NONE:
             rows.append((slot, name, float(weight)))
     return rows
+
+
+def _error_slots(lora_1, lora_2, values):
+    names = [lora_1, lora_2] + [values.get(f"lora_{idx}", NONE) for idx in range(3, 9)]
+    return [(slot, name) for slot, name in enumerate(names, 1)
+            if name and name != NONE and values.get(f"enabled_{slot}", True)]
+
+
+def _is_interruption(error):
+    return model_management is not None and isinstance(error, getattr(model_management, "InterruptProcessingException", ()))
 
 
 def _coalesce_duplicate_sources(rows):
@@ -154,7 +166,16 @@ class LoRABlendOne:
             return "compression=none is available only for Weighted merge."
         return True
 
-    def merge(
+    def merge(self, lora_1, weight_1, lora_2, weight_2, output_rank, filename_prefix, **kwargs):
+        try:
+            return self._merge(lora_1, weight_1, lora_2, weight_2, output_rank, filename_prefix, **kwargs)
+        except Exception as error:
+            if _is_interruption(error):
+                raise
+            publish_failure(error, _error_slots(lora_1, lora_2, kwargs))
+            raise
+
+    def _merge(
         self,
         lora_1,
         weight_1,
@@ -169,20 +190,30 @@ class LoRABlendOne:
             rows.append((kwargs.get(f"lora_{idx}", NONE), kwargs.get(f"weight_{idx}", 0.0)))
         selected = _selected_slots(rows, kwargs)
         if not selected:
-            raise ValueError("LoRA Blend One: select at least one enabled LoRA.")
+            raise MergeError("no_sources", [], "LoRA Blend One: select at least one enabled LoRA.")
         krea2 = kwargs.get("merge_method") == "Krea2 Gate-Aware"
         if krea2 and len(selected) != 2:
-            raise ValueError("Krea2 Gate-Aware requires exactly two selected LoRA slots.")
+            raise MergeError("krea2_count", [name for _, name, _ in selected],
+                             "Krea2 Gate-Aware requires exactly two selected LoRA slots.")
         coalesced = [(name, weight) for _, name, weight in selected] if krea2 else _coalesce_duplicate_sources(selected)
         names = [x[0] for x in coalesced]
         raw_weights = [x[1] for x in coalesced]
-        weights = [float(weight) / 100.0 for weight in raw_weights] if krea2 else resolve_weights(raw_weights, kwargs.get("weight_mode", "normalize"))
+        try:
+            weights = [float(weight) / 100.0 for weight in raw_weights] if krea2 else resolve_weights(raw_weights, kwargs.get("weight_mode", "normalize"))
+        except ValueError as error:
+            raise MergeError("invalid_weights", [], str(error)) from error
 
         infos = []
         hash_inputs = bool(kwargs.get("hash_inputs", True))
         for name in names:
-            path = folder_paths.get_full_path_or_raise("loras", name)
-            infos.append(scan_lora(path, compute_hash=hash_inputs))
+            try:
+                path = folder_paths.get_full_path_or_raise("loras", name)
+                infos.append(scan_lora(path, compute_hash=hash_inputs))
+            except Exception as error:
+                if isinstance(error, (MemoryError, torch.cuda.OutOfMemoryError)) or _is_interruption(error):
+                    raise
+                code = "missing_file" if isinstance(error, FileNotFoundError) else "read_failed"
+                raise MergeError(code, [name], f"{name}: {error}") from error
 
         rank_value = _rank_from_combo(output_rank, kwargs.get("custom_rank", 32))
         settings = MergeSettings(
@@ -226,32 +257,44 @@ class LoRABlendOne:
                 progress_bar.update(done - progress_state["last"])
                 progress_state["last"] = done
 
-        tensors, merge_report = merge_sources(
-            infos,
-            weights,
-            settings,
-            compatibility_mode=kwargs.get("compatibility_mode", "safe"),
-            progress=progress,
-            cancel_check=cancel_check,
-        )
+        try:
+            tensors, merge_report = merge_sources(
+                infos,
+                weights,
+                settings,
+                compatibility_mode=kwargs.get("compatibility_mode", "safe"),
+                progress=progress,
+                cancel_check=cancel_check,
+            )
+        except MergeError as error:
+            # File paths identify the right slot even when several files share a basename.
+            source_names = [name for name, info in zip(names, infos) if str(info.path) in (error.source_paths or ())]
+            if source_names:
+                raise MergeError(error.code, source_names, error.detail) from error
+            raise
         recipe = build_recipe(infos, weights, settings, merge_report)
         metadata = build_metadata(recipe)
         report_dict = report_to_dict(merge_report)
         report_dict["recipe"] = recipe
 
-        full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
-            filename_prefix, folder_paths.get_output_directory()
-        )
-        os.makedirs(full_output_folder, exist_ok=True)
-        output_name = f"{filename}_{counter:05}_.safetensors"
-        output_path = Path(full_output_folder) / output_name
-        save_verified(
-            tensors,
-            output_path,
-            metadata=metadata,
-            report=report_dict,
-            write_report=bool(kwargs.get("write_report", True)),
-        )
+        try:
+            full_output_folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
+                filename_prefix, folder_paths.get_output_directory()
+            )
+            os.makedirs(full_output_folder, exist_ok=True)
+            output_name = f"{filename}_{counter:05}_.safetensors"
+            output_path = Path(full_output_folder) / output_name
+            save_verified(
+                tensors,
+                output_path,
+                metadata=metadata,
+                report=report_dict,
+                write_report=bool(kwargs.get("write_report", True)),
+            )
+        except Exception as error:
+            if isinstance(error, (MemoryError, torch.cuda.OutOfMemoryError)) or _is_interruption(error):
+                raise
+            raise MergeError("save_failed", [], str(error)) from error
 
         rel_path = str(Path(subfolder) / output_name) if subfolder else output_name
         min_rank, max_rank = merge_report.rank_range()
@@ -300,13 +343,17 @@ class LoRABlendSources:
         return True
 
     def select(self, lora_1, weight_1, lora_2, weight_2, **kwargs):
-        rows = [(lora_1, weight_1), (lora_2, weight_2)]
-        for idx in range(3, 9):
-            rows.append((kwargs.get(f"lora_{idx}", NONE), kwargs.get(f"weight_{idx}", 0.0)))
-        selected = _selected_slots(rows, kwargs)
-        if not selected:
-            raise ValueError("LoRA Blend Sources: select at least one enabled LoRA.")
-        return (tuple(selected),)
+        try:
+            rows = [(lora_1, weight_1), (lora_2, weight_2)]
+            for idx in range(3, 9):
+                rows.append((kwargs.get(f"lora_{idx}", NONE), kwargs.get(f"weight_{idx}", 0.0)))
+            selected = _selected_slots(rows, kwargs)
+            if not selected:
+                raise MergeError("no_sources", [], "LoRA Blend Sources: select at least one enabled LoRA.")
+            return (tuple(selected),)
+        except Exception as error:
+            publish_failure(error, _error_slots(lora_1, lora_2, kwargs))
+            raise
 
 
 class LoRABlendOneSplit(LoRABlendOne):

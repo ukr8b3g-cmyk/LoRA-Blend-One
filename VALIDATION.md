@@ -4,8 +4,8 @@
 
 | Check | Result |
 | --- | --- |
-| Python suite: standard core, Krea2, MOSS, and node integration | 29 tests passed |
-| JavaScript UI suite: locale, store serialization/reload, legacy recovery, template, inline source toggles | 5 tests passed |
+| Python suite: standard core, Krea2, MOSS, node integration, and failure diagnostics | 42 tests passed |
+| JavaScript UI suite: locale, store serialization/reload, legacy recovery, template, inline source toggles, and failure panels | 11 tests passed |
 | Node integration after adding the model-status UI payload | Passed; split/legacy MOSS labels and generic label checked |
 | Model-status drawing with Advanced loaded in either extension order | JavaScript VM passed |
 | Original widget values/order through accordion serialization | JavaScript VM passed |
@@ -68,13 +68,26 @@ The submitted source-node inputs retained the filename and weight while only `en
 
 The automated cases also cover disabled unavailable files, legacy defaults, appended switch serialization without shifted file/weight values, switch-state round trips, Advanced visibility, and Krea2's requirement for two enabled slots.
 
+## Failure diagnostics
+
+Python checks verify source attribution for mixed model families, unsupported adapters, incompatible shapes, and missing target layers. The node boundary also identifies unreadable/missing files and reports save or memory failures without blaming a specific LoRA. Full registered paths distinguish identically named files in different folders. Original failures are re-raised; user interruption remains an interruption.
+
+JavaScript VM checks verify the red, wrapped English/Japanese source/reason/fix panel, raw error details, recovery after retry/success, native input-validation failures, and event/listener isolation. Normal source rows retain their layout, and Sources has no empty status strip. Live verification in the existing Chrome tab passed on 2026-10-22 after ComfyUI restart and browser reload. A duplicate of the original workflow combined five MOSS-Image LoRAs with enabled slot 7, `DMD2\dmd2_sdxl_4step_lora.safetensors`, at weight 1.0. The actual `MergeError` stopped node 5 before blend output was saved. The red panel displayed:
+
+- Source: the exact slot 7 and registered filename, with wrapping.
+- Reason (Japanese): the selected sources include a LoRA not recognized as MOSS-Image.
+- Suggested fix (Japanese): turn the listed LoRA OFF or use LoRAs for the same base model.
+- Details: the original incompatible-source message, including `sd_family`.
+
+The first attempt still had an older frontend module loaded and showed only the generic failure toast. Reloading the existing Chrome page and rerunning the same copy displayed the new panel. The original four nodes, widget values, and connections were equal before/after; the saved original workflow SHA256 was unchanged. The test copy was closed and the original tab restored. English live rendering was not repeated; English/Japanese rendering is covered by the VM checks.
+
 ## Reproduce
 
 Run with the Python environment used by your ComfyUI installation:
 
 ```sh
 python -m unittest discover -s tests -p "test_*.py" -v
-node --test tests/test_ui.mjs tests/test_source_toggles.mjs
+node --test tests/test_ui.mjs tests/test_source_toggles.mjs tests/test_error_ui.mjs
 python tools/validate_moss_local.py --help
 ```
 

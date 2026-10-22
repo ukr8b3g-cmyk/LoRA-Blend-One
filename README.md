@@ -19,6 +19,7 @@ Use two connected nodes to choose up to eight LoRAs, set their strengths, and sa
 - FP32 computation with Auto / FP32 / FP16 / BF16 storage
 - CPU/CUDA selection and same-settings CPU fallback on CUDA out-of-memory errors
 - Expandable Advanced controls, verified temporary saves, recipe metadata, and optional JSON reports
+- Error panels with the affected LoRA names, stop reason, and suggested fix
 
 ## Install
 
@@ -53,6 +54,8 @@ To use the result in generation, copy it to `ComfyUI/models/loras/` or another c
 Open **Advanced** on the Sources node to select LoRAs 3–8. Seed (default 0), numerical controls, and diagnostics are in Advanced on the merge node. The detailed JSON report defaults to off on this two-node path.
 
 Each LoRA keeps two rows: its filename, with an inline **ON/OFF** switch, and its weight. OFF retains the filename and weight while excluding that slot from file validation, loading, and blending. Existing workflows default to ON.
+
+If a blend stops, a red panel on the node shows the affected LoRA slot/filename, the reason, and how to fix it. The panel follows the interface language and wraps long names. Settings/output errors and unidentified causes are reported without blaming an arbitrary LoRA. Retrying clears the previous error; successful execution restores the model-status display.
 
 The original `LoRABlendOne` node remains available as **LoRA Blend One (Legacy)** for existing workflows.
 
@@ -144,7 +147,7 @@ A numeric Output Rank caps every Krea2 output layer; dedicated gate/normal compr
 
 ## Validation and limitations
 
-The local suite passed **29 Python tests** and **5 JavaScript UI tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, node integration, locale switching, inline source switches, and workflow serialization/recovery.
+The local suite passed **42 Python tests** and **11 JavaScript UI tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, node integration, locale switching, inline source switches, and workflow serialization/recovery. Structured failure tests also cover source attribution, duplicate filenames in different folders, memory errors, save errors, and cancellation. Error-panel rendering in English/Japanese and event routing were checked in the JavaScript VM. In the existing Chrome tab, a duplicate workflow was run with five MOSS-Image LoRAs and an enabled SDXL LoRA in slot 7. After restarting ComfyUI and reloading the browser, the actual compatibility error displayed the exact slot/filename, Japanese stop reason, and suggested fix on the node. The original workflow settings and connections were preserved. Reload the browser after updating so that the new error UI is loaded.
 
 Three real MOSS LoRAs with ranks **128 / 32 / 32** were blended on CPU at direct coefficients **0.8 / 0.4 / 0.2**. Both saved outputs reopened successfully; the installed ComfyUI parser loaded all **252 layers**, and its real weight adapter applied Q/O patches.
 

@@ -6,6 +6,7 @@ from typing import Callable
 
 import torch
 
+from .errors import MergeError
 from .formats import OpenedSources
 from .math_ops import (
     dare_sparsify,
@@ -141,13 +142,18 @@ def choose_device(method: str, out_dim: int, in_flat: int, rank_sum: int, auto_r
 def _validate_sources(infos: list[SourceInfo], compatibility_mode: str) -> list[str]:
     warnings: list[str] = []
     if any(info.architecture_hint == "moss_image" for info in infos) and any(info.architecture_hint != "moss_image" for info in infos):
-        raise ValueError("MOSS-Image LoRAs must be blended with other recognized MOSS-Image LoRAs.")
+        incompatible = [info for info in infos if info.architecture_hint != "moss_image"]
+        names = ", ".join(f"{info.name} ({info.architecture_hint})" for info in incompatible)
+        raise MergeError("moss_mixed", [info.name for info in incompatible],
+                         "MOSS-Image LoRAs must be blended with other recognized MOSS-Image LoRAs. "
+                         f"Incompatible sources: {names}", source_paths=[str(info.path) for info in incompatible])
     for info in infos:
         if info.unsupported:
             preview = ", ".join(info.unsupported[:5])
             extra = " ..." if len(info.unsupported) > 5 else ""
-            raise ValueError(
-                f"{info.name} contains unsupported adapter tensors (DoRA/LoCon/LyCORIS/full diff): {preview}{extra}"
+            raise MergeError("unsupported_adapter", [info.name],
+                f"{info.name} contains unsupported adapter tensors (DoRA/LoCon/LyCORIS/full diff): {preview}{extra}",
+                source_paths=[str(info.path)],
             )
         warnings.extend(f"{info.name}: {w}" for w in info.warnings)
 
@@ -160,9 +166,11 @@ def _validate_sources(infos: list[SourceInfo], compatibility_mode: str) -> list[
         common &= set(info.layers)
 
     if not common and len(hints) > 1 and compatibility_mode != "allow_disjoint":
-        raise ValueError(
+        names = ", ".join(f"{info.name} ({info.architecture_hint})" for info in infos)
+        raise MergeError("model_mismatch", [info.name for info in infos],
             "Selected LoRAs have no matching target keys and appear to belong to different architecture families. "
-            "Use compatibility_mode=allow_disjoint only when you know the adapters target the same base model."
+            "Use compatibility_mode=allow_disjoint only when you know the adapters target the same base model. "
+            f"Sources: {names}", source_paths=[str(info.path) for info in infos],
         )
     if not common:
         warnings.append("No shared target keys were found; layers will be combined as disjoint adapters.")
@@ -171,16 +179,21 @@ def _validate_sources(infos: list[SourceInfo], compatibility_mode: str) -> list[
     return warnings
 
 
-def _check_target_shapes(contributors):
-    first = contributors[0][2]
-    for _, _, spec in contributors[1:]:
+def _check_target_shapes(contributors, infos):
+    first_index, _, first = contributors[0]
+    for source_index, _, spec in contributors[1:]:
+        sources = [infos[first_index].name, infos[source_index].name]
+        source_paths = [str(infos[first_index].path), str(infos[source_index].path)]
         if spec.out_dim != first.out_dim or spec.in_flat != first.in_flat or spec.layout != first.layout:
-            raise ValueError(
+            raise MergeError("shape_mismatch", sources,
                 f"Target {first.target!r} has incompatible shapes/layouts: "
-                f"{first.up_shape}/{first.down_shape} vs {spec.up_shape}/{spec.down_shape}"
+                f"{first.up_shape}/{first.down_shape} vs {spec.up_shape}/{spec.down_shape}. "
+                f"Sources: {sources[0]} vs {sources[1]}", source_paths=source_paths,
             )
         if spec.layout == "conv" and spec.down_tail != first.down_tail:
-            raise ValueError(f"Target {first.target!r} has incompatible convolution kernel shapes")
+            raise MergeError("shape_mismatch", sources,
+                             f"Target {first.target!r} has incompatible convolution kernel shapes. "
+                             f"Sources: {sources[0]} vs {sources[1]}", source_paths=source_paths)
 
 
 def _sparsify(method: str, delta: torch.Tensor, settings: MergeSettings, seed: int) -> torch.Tensor:
@@ -258,11 +271,16 @@ def _merge_krea2_sources(infos, weights, settings, warnings, progress, cancel_ch
             if cancel_check:
                 cancel_check()
             contributors = [(i, float(weights[i]), info.layers[target]) for i, info in enumerate(infos) if target in info.layers]
-            _check_target_shapes(contributors)
+            _check_target_shapes(contributors, infos)
             template = contributors[0][2]
             unmatched = len(contributors) == 1
             if unmatched and settings.unmatched_policy == "error":
-                raise ValueError(f"Target {target!r} is not present in both Krea2 LoRAs")
+                present = {item[0] for item in contributors}
+                missing = [info for source_index, info in enumerate(infos) if source_index not in present]
+                raise MergeError("missing_targets", [info.name for info in missing],
+                                 f"Target {target!r} is not present in both Krea2 LoRAs. "
+                                 f"Missing sources: {', '.join(info.name for info in missing)}",
+                                 source_paths=[str(info.path) for info in missing])
             if unmatched and settings.unmatched_policy == "drop":
                 continue
             rank_sum = sum(item[2].rank for item in contributors)
@@ -371,7 +389,11 @@ def merge_sources(
     warnings = _validate_sources(infos, compatibility_mode)
     if method == "Krea2 Gate-Aware":
         if any(info.architecture_hint == "moss_image" for info in infos):
-            raise ValueError("Krea2 Gate-Aware cannot be used with MOSS-Image LoRAs.")
+            moss = [info for info in infos if info.architecture_hint == "moss_image"]
+            raise MergeError("krea2_moss", [info.name for info in moss],
+                             "Krea2 Gate-Aware cannot be used with MOSS-Image LoRAs. "
+                             f"Sources: {', '.join(info.name for info in moss)}",
+                             source_paths=[str(info.path) for info in moss])
         return _merge_krea2_sources(infos, weights, settings, warnings, progress, cancel_check)
     storage_dtype = resolve_storage_dtype(settings.output_dtype, infos)
 
@@ -390,11 +412,16 @@ def merge_sources(
                     contributors.append((src_idx, float(weight), spec))
             if not contributors:
                 continue
-            _check_target_shapes(contributors)
+            _check_target_shapes(contributors, infos)
             template = contributors[0][2]
             unmatched = len(contributors) < len(infos)
             if unmatched and settings.unmatched_policy == "error":
-                raise ValueError(f"Target {target!r} is not present in every selected LoRA")
+                present = {item[0] for item in contributors}
+                missing = [info for source_index, info in enumerate(infos) if source_index not in present]
+                raise MergeError("missing_targets", [info.name for info in missing],
+                                 f"Target {target!r} is not present in every selected LoRA. "
+                                 f"Missing sources: {', '.join(info.name for info in missing)}",
+                                 source_paths=[str(info.path) for info in missing])
             if unmatched and settings.unmatched_policy == "drop":
                 continue
 

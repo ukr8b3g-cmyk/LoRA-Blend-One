@@ -25,7 +25,8 @@ test('custom UI follows ComfyUI locale without changing saved settings', () => {
     };
     const app = { ui: { settings }, graph: { setDirtyCanvas() {} },
         registerExtension: extension => extensions.push(extension) };
-    const context = vm.createContext({ app, queueMicrotask });
+    const api = { addEventListener() {}, removeEventListener() {} };
+    const context = vm.createContext({ app, api, queueMicrotask });
     for (const file of ['i18n.js', 'source_toggles.js', 'accordion.js', 'model_status.js']) {
         const source = uiSource(file)
             .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');

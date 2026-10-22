@@ -6,6 +6,7 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import torch
@@ -243,6 +244,69 @@ class NodeIntegrationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "exactly two selected LoRA slots"):
                     Blend().merge(invalid_count, "Auto", "loras/krea2_invalid_count",
                                   merge_method="Krea2 Gate-Aware", device="cpu", hash_inputs=False)
+
+            # Failures stay failures, while the UI gets the originating slot/file.
+            with patch.object(module.nodes, "publish_failure") as notify:
+                with self.assertRaisesRegex(ValueError, "MOSS-Image LoRAs") as caught:
+                    Blend().merge(((1, "moss.safetensors", 50.), (7, "l0.safetensors", 50.)),
+                                  "32", "loras/failure", device="cpu", hash_inputs=False)
+                self.assertEqual(caught.exception.code, "moss_mixed")
+                self.assertEqual(notify.call_args.args[1], [(1, "moss.safetensors"), (7, "l0.safetensors")])
+                self.assertFalse((output / "loras" / "failure_00001_.safetensors").exists())
+            for directory, original in (("MOSS", "moss.safetensors"), ("Other", "l0.safetensors")):
+                (loras / directory).mkdir()
+                (loras / directory / "adapter_model.safetensors").write_bytes((loras / original).read_bytes())
+            with patch.object(module.nodes, "publish_failure") as notify:
+                with self.assertRaises(ValueError) as caught:
+                    Blend().merge(((1, "MOSS/adapter_model.safetensors", 50.),
+                                   (7, "Other/adapter_model.safetensors", 50.)),
+                                  "32", "loras/same_basename", device="cpu", hash_inputs=False)
+                self.assertEqual(caught.exception.sources, ["Other/adapter_model.safetensors"])
+                reporting = sys.modules[package_name + ".error_reporting"]
+                payload = reporting.describe_failure(caught.exception, notify.call_args.args[1])
+                self.assertEqual(payload["sources"], [{"slot": 7, "name": "Other/adapter_model.safetensors"}])
+            with patch.object(module.nodes, "publish_failure") as notify:
+                with self.assertRaises(ValueError) as caught:
+                    Node().merge("missing.safetensors", 100., "(none)", 0., "32", "loras/missing",
+                                 device="cpu", hash_inputs=False)
+                self.assertEqual(caught.exception.code, "missing_file")
+                self.assertEqual(caught.exception.sources, ["missing.safetensors"])
+                notify.assert_called_once()
+            with patch.object(module.nodes, "publish_failure") as notify:
+                with self.assertRaises(ValueError) as caught:
+                    Sources().select(**all_off)
+                self.assertEqual(caught.exception.code, "no_sources")
+                notify.assert_called_once()
+            with patch.object(module.nodes, "publish_failure") as notify, \
+                 patch.object(module.nodes, "save_verified", side_effect=PermissionError("output is read-only")):
+                with self.assertRaises(ValueError) as caught:
+                    Blend().merge(((1, "moss.safetensors", 100.),), "32", "loras/denied",
+                                  device="cpu", hash_inputs=False)
+                self.assertEqual(caught.exception.code, "save_failed")
+                self.assertEqual(caught.exception.sources, [])
+                notify.assert_called_once()
+            class Interrupted(Exception):
+                pass
+            with patch.object(mm, "InterruptProcessingException", Interrupted, create=True), \
+                 patch.object(module.nodes, "merge_sources", side_effect=Interrupted()), \
+                 patch.object(module.nodes, "publish_failure") as notify:
+                with self.assertRaises(Interrupted):
+                    Blend().merge(((1, "moss.safetensors", 100.),), "32", "loras/cancelled",
+                                  device="cpu", hash_inputs=False)
+                notify.assert_not_called()
+            with patch.object(module.nodes, "scan_lora", side_effect=MemoryError("not enough RAM")), \
+                 patch.object(module.nodes, "publish_failure") as notify:
+                with self.assertRaises(MemoryError):
+                    Blend().merge(((1, "moss.safetensors", 100.),), "32", "loras/read_oom",
+                                  device="cpu", hash_inputs=False)
+                self.assertIsInstance(notify.call_args.args[0], MemoryError)
+            with patch.object(mm, "InterruptProcessingException", Interrupted, create=True), \
+                 patch.object(module.nodes, "scan_lora", side_effect=Interrupted()), \
+                 patch.object(module.nodes, "publish_failure") as notify:
+                with self.assertRaises(Interrupted):
+                    Blend().merge(((1, "moss.safetensors", 100.),), "32", "loras/read_cancelled",
+                                  device="cpu", hash_inputs=False)
+                notify.assert_not_called()
 
 
 if __name__ == "__main__":
