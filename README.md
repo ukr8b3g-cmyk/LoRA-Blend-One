@@ -59,6 +59,52 @@ If a blend stops, a red panel on the node shows the affected LoRA slot/filename,
 
 The original `LoRABlendOne` node remains available as **LoRA Blend One (Legacy)** for existing workflows.
 
+## Import Power LoRA Loader settings
+
+**Supported source: Power Lora Loader (rgthree) only.** The standard LoRA Loader and other loader/stack nodes are not import sources.
+
+This is a **one-click settings copy**. Power LoRA Loader needs **no cables**, and its MODEL/CLIP inputs and outputs can all stay disconnected. Keep it in the **same workflow** as Sources. The only required cable is:
+
+```text
+LoRA Blend Sources [sources] ───▶ [LoRA Sources] LoRA Blend One
+```
+
+### 1. Open Advanced on Sources
+
+Open **Advanced** on the **LoRA Blend Sources** node. This is where the import controls live.
+
+![1. Open Advanced on LoRA Blend Sources](docs/images/power-loader-01-advanced.png)
+
+### 2. Select the loader
+
+Click the **Power LoRA Loader** row, which initially says **(none)**. Select the loader by its node ID/title, for example **#3 Power Lora Loader (rgthree)**. Your ID may differ. If the panel says **Cannot import / Select a Power LoRA Loader**, this selection is still missing.
+
+![2. Change none to the Power LoRA Loader in this workflow](docs/images/power-loader-02-select.png)
+
+### 3. Import all ON rows, including slots 1 and 2
+
+Click **Import Enabled LoRAs**. It fills **all Sources slots from 1 onward**, including the two rows above Advanced. You do not need to enter those first two LoRAs manually. In this example, `0.80 / 0.20` becomes `80 / 20%`; the other ON rows fill slots 3–8 in displayed order. OFF rows remain in the original loader and are excluded. Unused Sources slots are cleared and turned OFF.
+
+![3. Import button and all eight populated Sources slots](docs/images/power-loader-03-import.png)
+
+Every directly connected Blend One is set to **direct**, preserving the loader's effective strengths. Other merge settings and the original loader are kept. **Import again after changing the loader**; this does not continuously synchronize the nodes.
+
+### 4. Choose rank and output filename
+
+On **LoRA Blend One**, choose **Output Rank** and **Filename Prefix**. The screenshot uses rank 32 as an example; choose your own rank/name. The imported files and strengths are in **Sources**.
+
+![4. Output Rank and Filename Prefix on Blend One](docs/images/power-loader-04-output.png)
+
+### 5. Run to save
+
+Click **Run** to blend and save. Importing settings alone does not create a file. Use the saved blend in your usual generation LoRA loader afterward.
+
+![5. Run starts blending and saving](docs/images/power-loader-05-run.png)
+
+**Limits:** up to eight ON rows. Unavailable/ambiguous files, invalid strengths, and inputs overriding the imported controls block the import before values change. If connected CLIP uses different Model/CLIP strengths, a single blend coefficient cannot reproduce both; use equal strengths or disconnect CLIP before importing.
+
+**Verified locally (2026-10-22):** the existing Chrome tab imported eight ON rows from a ten-row, fully disconnected Power LoRA Loader at `80 / 20 / 20 / 5 / 10 / 20 / 40 / 25%`. All filenames, strengths, and ON states matched the exported workflow and survived reopening. Both original workflow JSON exports were unchanged. English was checked live; Japanese labels/errors were checked in VM tests. This check did not queue blending or image generation.
+
 ## Interface language
 
 English is the default interface. In ComfyUI **Settings**, search for **Language** (`Comfy.Locale`) and select **Japanese** to use Japanese field labels, tooltips, Advanced controls, and model detection messages. Select English to switch back. Method identifiers such as Auto and Krea2 Gate-Aware keep their original names.
@@ -80,6 +126,11 @@ Supported factor forms include `.lora_A/B.weight`, `.lora_down/up.weight`, `.lor
 DoRA, LoHa, LoKr, LoCon-mid, full-diff/set-weight, and other non-Standard-LoRA adapters are outside the supported scope. MOSS inputs additionally reject unconsumed tensors, incomplete pairs, and ambiguous aliases.
 
 ## Strengths: normalize or direct
+
+- **direct:** divide each input by 100 and use that strength as entered. `80 / 40 / 20` becomes `0.8 / 0.4 / 0.2`, totaling **1.4**.
+- **normalize:** divide each input by the total, retaining the ratio while making the coefficients sum to **1.0**. The same entries become approximately `0.571 / 0.286 / 0.143`.
+
+Entries totaling 100, such as `80 / 20`, give the same result in both modes. The eight-source example above totals 220: normalize would change the first LoRA from `0.8` to about `0.364`. **Power LoRA Loader import selects direct to retain the existing loader strengths.** This weight setting is separate from the merge method.
 
 | Weight mode | Example input | Applied coefficients |
 | --- | --- | --- |
@@ -109,16 +160,31 @@ Storage precision affects size too. **Auto preserves a common input dtype; mixed
 
 ## Merge methods
 
+![Merge Method choices in the ComfyUI node](docs/images/merge-methods-menu.png)
+
+**Auto uses Weighted in this implementation.** Start there for the usual MOSS blend; compare the other standard methods when experimenting. None guarantees better image quality.
+
 | Method | Operation |
 | --- | --- |
 | Auto | Weighted |
 | Weighted | Sum weighted model deltas; exact factor concatenation or QR/SVD compression |
-| TIES | Magnitude sparsification and weighted sign consensus |
-| DARE | Random dropping with inverse keep-probability rescaling |
-| DELLA | Magnitude-ranked stochastic retention and rescaling |
-| Krea2 Gate-Aware | Dedicated two-LoRA Krea2 gate handling |
+| TIES | Keep larger delta elements, then filter opposing signs by default. Advanced: density and sign consensus. |
+| DARE | Randomly drop delta elements and rescale survivors. Advanced: density and Seed; sign consensus is off by default. |
+| DELLA | Give larger delta elements a higher probability of surviving, then rescale. Sign consensus is on by default. Advanced: density, half width, and Seed. |
+| Krea2 Gate-Aware | Gate-conflict handling for exactly two ON Krea2 LoRAs. MOSS inputs cannot use it. |
 
 TIES/DARE/DELLA materialize a dense delta one layer at a time and can need more memory than Weighted. Stochastic operations use local generators derived from Seed, target, and source.
+
+### Processing time
+
+| Method | Work performed before output compression |
+| --- | --- |
+| Auto / Weighted | Works with low-rank factors; generally the lightest path here. |
+| TIES | Reconstructs full-size deltas, selects values by magnitude, checks sign agreement by default, then factors the result. |
+| DARE | Reconstructs full-size deltas, generates random masks and rescales, then factors the result. Sign consensus is off by default. |
+| DELLA | Also sorts values by magnitude to calculate retention probabilities; sign consensus is on by default. This can be particularly expensive. |
+
+TIES, DARE, and DELLA can all take much longer than Weighted, especially with many large LoRAs or CPU computation. The current sign-consensus path computes each source's sparse delta twice. There is no fixed speed ranking or time estimate across machines/settings. **A smaller output rank does not remove the earlier full-size reconstruction, filtering, or sorting work.** It is mainly an output compression setting. Seed controls random choices; it does not make these methods fast.
 
 ### MOSS-Image: automatic detection
 
@@ -147,7 +213,7 @@ A numeric Output Rank caps every Krea2 output layer; dedicated gate/normal compr
 
 ## Validation and limitations
 
-The local suite passed **42 Python tests** and **11 JavaScript UI tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, node integration, locale switching, inline source switches, and workflow serialization/recovery. Structured failure tests also cover source attribution, duplicate filenames in different folders, memory errors, save errors, and cancellation. Error-panel rendering in English/Japanese and event routing were checked in the JavaScript VM. In the existing Chrome tab, a duplicate workflow was run with five MOSS-Image LoRAs and an enabled SDXL LoRA in slot 7. After restarting ComfyUI and reloading the browser, the actual compatibility error displayed the exact slot/filename, Japanese stop reason, and suggested fix on the node. The original workflow settings and connections were preserved. Reload the browser after updating so that the new error UI is loaded.
+The local suite passed **42 Python tests** and **19 JavaScript UI tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, node integration, locale switching, inline source switches, and workflow serialization/recovery. Structured failure tests also cover source attribution, duplicate filenames in different folders, memory errors, save errors, and cancellation. Error-panel rendering in English/Japanese and event routing were checked in the JavaScript VM. In the existing Chrome tab, a duplicate workflow was run with five MOSS-Image LoRAs and an enabled SDXL LoRA in slot 7. After restarting ComfyUI and reloading the browser, the actual compatibility error displayed the exact slot/filename, Japanese stop reason, and suggested fix on the node. The original workflow settings and connections were preserved. Reload the browser after updating so that the new error UI is loaded.
 
 Three real MOSS LoRAs with ranks **128 / 32 / 32** were blended on CPU at direct coefficients **0.8 / 0.4 / 0.2**. Both saved outputs reopened successfully; the installed ComfyUI parser loaded all **252 layers**, and its real weight adapter applied Q/O patches.
 

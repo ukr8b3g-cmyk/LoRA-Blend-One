@@ -5,7 +5,7 @@
 | Check | Result |
 | --- | --- |
 | Python suite: standard core, Krea2, MOSS, node integration, and failure diagnostics | 42 tests passed |
-| JavaScript UI suite: locale, store serialization/reload, legacy recovery, template, inline source toggles, and failure panels | 11 tests passed |
+| JavaScript UI suite: locale, store serialization/reload, legacy recovery, template, inline source toggles, failure panels, and Power LoRA Loader import | 19 tests passed |
 | Node integration after adding the model-status UI payload | Passed; split/legacy MOSS labels and generic label checked |
 | Model-status drawing with Advanced loaded in either extension order | JavaScript VM passed |
 | Original widget values/order through accordion serialization | JavaScript VM passed |
@@ -81,13 +81,21 @@ JavaScript VM checks verify the red, wrapped English/Japanese source/reason/fix 
 
 The first attempt still had an older frontend module loaded and showed only the generic failure toast. Reloading the existing Chrome page and rerunning the same copy displayed the new panel. The original four nodes, widget values, and connections were equal before/after; the saved original workflow SHA256 was unchanged. The test copy was closed and the original tab restored. English live rendering was not repeated; English/Japanese rendering is covered by the VM checks.
 
+## Power LoRA Loader import — 2026-10-22
+
+Eight JavaScript VM cases cover Advanced-only English/Japanese controls, settings-only import without changing the original loader, displayed row order, direct percentages, unused-slot clearing, zero/negative strengths, eight ON rows among ten total rows, missing/ambiguous filenames, invalid strengths, separate Model/CLIP limits, connected-input overrides, multiple Blend One consumers, stale/other-workflow selection, and serialization/reload without shifting saved values. Existing locale/toggle/error UI cases also pass. The Python blending implementation and rgthree files are unchanged.
+
+Live verification used the existing Chrome tab and a duplicate of the user's loader workflow. The new controls appeared inside Sources Advanced after a browser reload. A ten-row Power LoRA Loader had eight ON rows and two OFF rows. Clicking **Import Enabled LoRAs** copied the eight enabled filenames in displayed order at **80 / 20 / 20 / 5 / 10 / 20 / 40 / 25 percent**, excluded the two OFF rows, and changed the connected Blend One from normalize to direct. No model inputs were connected or loaded.
+
+The exported workflow contained exactly the existing 24 Sources values, with no import controls inserted into the schema order. All eight names, percentages, and ON states matched the loader; its widget values and properties were unchanged. Other merge settings, including the output prefix, were kept. Switching away and reopening the test tab retained the imported values and selected loader. Complete before/after JSON exports of both original workflow tabs were identical. The test copy was retained for inspection. Japanese labels/errors were covered by VM tests; the live import was checked in English. No blend execution or image generation was queued for this settings-import check, and generation equivalence after compression is not established.
+
 ## Reproduce
 
 Run with the Python environment used by your ComfyUI installation:
 
 ```sh
 python -m unittest discover -s tests -p "test_*.py" -v
-node --test tests/test_ui.mjs tests/test_source_toggles.mjs tests/test_error_ui.mjs
+node --test tests/test_ui.mjs tests/test_source_toggles.mjs tests/test_error_ui.mjs tests/test_power_loader.mjs
 python tools/validate_moss_local.py --help
 ```
 

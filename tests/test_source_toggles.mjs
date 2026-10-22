@@ -19,11 +19,11 @@ function setup() {
     const context = vm.createContext({ app, queueMicrotask,
         LiteGraph: { ContextMenu: class { constructor(values, options) { menus.push({ values, options }); } } },
     });
-    for (const file of ['i18n.js', 'source_toggles.js', 'accordion.js']) {
+    for (const file of ['i18n.js', 'source_toggles.js', 'power_loader.js', 'accordion.js']) {
         const source = fs.readFileSync(new URL(`../web/${file}`, import.meta.url), 'utf8')
             .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
         const exports = file === 'i18n.js' ? 'Object.assign(globalThis, {text, watchLocale});'
-            : file === 'source_toggles.js' ? 'globalThis.installSourceToggles = installSourceToggles;' : '';
+            : file === 'source_toggles.js' ? 'globalThis.installSourceToggles = installSourceToggles;' : file === 'power_loader.js' ? 'globalThis.installPowerLoaderControls = installPowerLoaderControls;' : '';
         vm.runInContext(`{ ${source}\n${exports} }`, context);
     }
     const required = {}, optional = {};

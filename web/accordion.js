@@ -1,6 +1,7 @@
 import { app } from '../../scripts/app.js';
 import { text, watchLocale } from './i18n.js';
 import { installSourceToggles } from './source_toggles.js';
+import { installPowerLoaderControls } from './power_loader.js';
 
 const NODE_NAMES = new Set(['LoRABlendSources', 'LoRABlendOneSplit']);
 const STATE_KEY = 'lora_blend_advanced_open';
@@ -49,6 +50,7 @@ function restoreWidgetOrder(info, original, display, nodeData) {
 
 function installAccordion(node, nodeData) {
     if (node.loraBlendAccordion || !node.addWidget) return;
+    if (nodeData.name === 'LoRABlendSources') installPowerLoaderControls(node);
     const advancedNames = new Set(Object.entries(nodeData.input?.optional || {})
         .filter(([, spec]) => spec[1]?.advanced === true)
         .map(([name]) => name));
@@ -57,9 +59,10 @@ function installAccordion(node, nodeData) {
         advancedNames.add('control_before_generate');
     }
     const original = [...(node.widgets || [])];
-    const advanced = original.filter(widget => advancedNames.has(widget.name));
+    const advanced = [...original.filter(widget => widget.loraBlendAdvanced),
+        ...original.filter(widget => advancedNames.has(widget.name))];
     if (!advanced.length) return;
-    const regular = original.filter(widget => !advancedNames.has(widget.name));
+    const regular = original.filter(widget => !advanced.includes(widget));
     const presentation = new Map(advanced.map(widget => [widget, {
         computeSize: widget.computeSize,
         elements: [...new Set([widget.element, widget.inputEl].filter(Boolean))]
@@ -78,6 +81,7 @@ function installAccordion(node, nodeData) {
 
     function refresh() {
         const open = node.properties?.[STATE_KEY] === true;
+        node.loraBlendPowerLoader?.refresh();
         const krea2 = original.find(widget => widget.name === 'merge_method')?.value === 'Krea2 Gate-Aware';
         header.name = `${open ? '▼' : '▶'} ${text(app, 'Advanced', '詳細設定')}`;
         for (const widget of advanced) {
