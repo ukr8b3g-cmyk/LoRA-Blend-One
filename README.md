@@ -120,7 +120,7 @@ Select your MOSS LoRA files and use **Auto / Weighted**, or another standard met
 
 Before blending, MOSS keys are normalized and joint-block QKV is split into Q/K/V. Source alpha/rank scaling is preserved. Text-embedder QKV stays fused. Exactly zero columns in block-diagonal QKV exports are removed without approximation.
 
-After a successful execution, the node shows **`前回のモデル判定：MOSS-Image`** in a green status row. Before execution it shows `モデル判定：実行後に表示`. The status describes the last successful result. The returned save summary also includes `model=MOSS-Image`.
+After a successful execution, the node shows **`Last detected model: MOSS-Image`** in a green status row. Before execution it shows `Model detection: run to detect`. These labels follow the selected interface language. The status describes the last successful result. The returned save summary also includes `model=MOSS-Image`.
 
 Output files use ComfyUI-compatible `diffusion_model.<module>.lora_A/B.weight` keys, alpha equal to the saved rank, and MOSS family metadata. Auxiliary time-path files and dedicated sampler behavior from distillation packages are not incorporated into the blended LoRA.
 
@@ -141,7 +141,7 @@ A numeric Output Rank caps every Krea2 output layer; dedicated gate/normal compr
 
 ## Validation and limitations
 
-The local suite passed **29 tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, and node integration. A subsequent node-status integration check also passed.
+The local suite passed **29 Python tests** and **3 JavaScript UI tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, node integration, locale switching, and workflow serialization/recovery.
 
 Three real MOSS LoRAs with ranks **128 / 32 / 32** were blended on CPU at direct coefficients **0.8 / 0.4 / 0.2**. Both saved outputs reopened successfully; the installed ComfyUI parser loaded all **252 layers**, and its real weight adapter applied Q/O patches.
 
@@ -150,7 +150,26 @@ Three real MOSS LoRAs with ranks **128 / 32 / 32** were blended on CPU at direct
 | Rank 16 | 148,726,088 bytes (about 149 MB) |
 | Rank 32 | 297,362,312 bytes (about 297 MB) |
 
-These checks used the base model header for shape binding. **GPU image generation/quality comparison and final live frontend rendering have not been verified.** Model-status drawing, Advanced expansion, and widget serialization were checked in a JavaScript VM.
+These three-input CPU checks used the base model header for shape binding.
+
+### MOSS-Image SFT: blend, save, reload, and GPU generation
+
+An end-to-end check passed on **2026-10-22** in a running ComfyUI instance, using an existing Chrome tab:
+
+| Stage | Verified result |
+| --- | --- |
+| Inputs | `LUC-LORA-MOSS-Epoch 12.safetensors` + `LUC-LORA-MOSS-Epoch 20.safetensors`, 50:50, `normalize` |
+| Blend | Auto → Weighted, CPU computation, Output Rank 16, BF16 storage, Seed 0 / fixed |
+| Saved file | **72,633,952 bytes** (about 72.6 MB), 246 layers, every saved rank 16, no blend warnings |
+| Reload | All **738 tensors** finite and consumed by the installed ComfyUI parser; no unused tensors or shape mismatches |
+| Generation | Saved blend selected in **Power Lora Loader (rgthree)** at strength **0.3**, with `moss_image_sft_bf16.safetensors` |
+| Image | **896 × 1184**, 8 steps, CFG 1, `er_sde` / `simple`, fixed seed 525173493099460; WEBP saved and visually inspected |
+
+The blend and generation jobs completed successfully in 3.774 s and 19.079 s respectively on the tested setup (RTX 5060 Ti, 16 GB VRAM). These are individual observed times, not general performance estimates. The actual execution history confirmed that the saved blend was enabled at strength 0.3, and the image decoded at the expected size without a black/noise-only result.
+
+Other LoRAs from the original generation workflow remained enabled. This confirms loading and generation under those conditions; it is not an isolated visual-quality A/B comparison or a guarantee for every MOSS LoRA, MOSS-Image Base, or other model family.
+
+Live Chrome checks also passed for template loading, Advanced expansion/collapse, English → Japanese → English switching, and workflow save/close/reopen. Custom Rank 48, Energy Target 0.975, and Storage Dtype BF16 remained intact; all 44 exported API settings matched the saved values and declared input types.
 
 Run the automated suite with ComfyUI's Python environment:
 
