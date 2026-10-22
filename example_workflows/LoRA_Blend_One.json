@@ -43,6 +43,8 @@
     {
       "id": 4,
       "type": "LoRABlendSources",
+      "color": "#243322",
+      "bgcolor": "#375533",
       "pos": [
         2440,
         -280
@@ -108,6 +110,8 @@
     {
       "id": 5,
       "type": "LoRABlendOneSplit",
+      "color": "#243322",
+      "bgcolor": "#375533",
       "pos": [
         2960,
         -280
