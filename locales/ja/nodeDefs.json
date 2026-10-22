@@ -1,0 +1,394 @@
+{
+  "LoRABlendOne": {
+    "display_name": "LoRA Blend One (Legacy)",
+    "description": "最大8個の互換Standard LoRAを1つのsafetensorsへマージします。Autoは重み付きDeltaマージを使用し、AdvancedではTIES / DARE / DELLA、ランク・圧縮、保存精度、デバイス、互換性、再現性を調整できます。",
+    "inputs": {
+      "lora_1": {
+        "name": "LoRA 1",
+        "tooltip": "1個目のLoRAファイル。ComfyUIが扱う主要なStandard LoRA factor形式を自動認識します。"
+      },
+      "weight_1": {
+        "name": "比率 1 (%)",
+        "tooltip": "パーセント指定です。normalizeでは選択中の正の比率を合計100%になるよう正規化します。"
+      },
+      "lora_2": {
+        "name": "LoRA 2",
+        "tooltip": "2個目のLoRAファイル。(none)なら1個のLoRAをランク変換・dtype変換する用途にも使えます。"
+      },
+      "weight_2": {
+        "name": "比率 2 (%)",
+        "tooltip": "パーセント指定です。例: 30 / 70ならDeltaを30:70で合成します。"
+      },
+      "output_rank": {
+        "name": "出力ランク",
+        "tooltip": "Autoでは圧縮設定（Krea2は専用設定）に従います。ランク指定時はenergyやnoneを含め、全出力層に上限を適用します。"
+      },
+      "filename_prefix": {
+        "name": "保存名",
+        "tooltip": "ComfyUI/output配下の保存名です。重複防止用の連番が自動で付きます。"
+      },
+      "lora_3": {
+        "name": "LoRA 3（追加）",
+        "tooltip": "追加する3個目のLoRAです。"
+      },
+      "weight_3": {
+        "name": "比率 3 (%)",
+        "tooltip": "LoRA 3の比率です。"
+      },
+      "lora_4": {
+        "name": "LoRA 4（追加）",
+        "tooltip": "追加する4個目のLoRAです。"
+      },
+      "weight_4": {
+        "name": "比率 4 (%)",
+        "tooltip": "LoRA 4の比率です。"
+      },
+      "lora_5": {
+        "name": "LoRA 5（追加）",
+        "tooltip": "追加する5個目のLoRAです。"
+      },
+      "weight_5": {
+        "name": "比率 5 (%)",
+        "tooltip": "LoRA 5の比率です。"
+      },
+      "lora_6": {
+        "name": "LoRA 6（追加）",
+        "tooltip": "追加する6個目のLoRAです。"
+      },
+      "weight_6": {
+        "name": "比率 6 (%)",
+        "tooltip": "LoRA 6の比率です。"
+      },
+      "lora_7": {
+        "name": "LoRA 7（追加）",
+        "tooltip": "追加する7個目のLoRAです。"
+      },
+      "weight_7": {
+        "name": "比率 7 (%)",
+        "tooltip": "LoRA 7の比率です。"
+      },
+      "lora_8": {
+        "name": "LoRA 8（追加）",
+        "tooltip": "追加する8個目のLoRAです。"
+      },
+      "weight_8": {
+        "name": "比率 8 (%)",
+        "tooltip": "LoRA 8の比率です。"
+      },
+      "merge_method": {
+        "name": "マージ方式",
+        "tooltip": "AutoはWeightedです。Krea2 Gate-Awareは2個のLoRAに直接比率を適用し、ゲート競合を処理します。TIES / DARE / DELLAも選択できます。"
+      },
+      "weight_mode": {
+        "name": "比率モード",
+        "tooltip": "通常方式ではnormalizeまたはdirectを選択します。Krea2 Gate-Awareは常に比率を直接使用します（50 = 0.5）。"
+      },
+      "compression_mode": {
+        "name": "圧縮",
+        "tooltip": "通常方式の圧縮設定です。Weightedのnoneは出力ランクAutoなら厳密結合し、低いランクを指定すると圧縮します。Krea2は専用設定を使います。"
+      },
+      "custom_rank": {
+        "name": "カスタムランク",
+        "tooltip": "出力ランクでCustomを選んだ場合に使用します。"
+      },
+      "energy_target": {
+        "name": "Energy目標",
+        "tooltip": "数値的なDelta energyの目標です。画像品質の保持率ではありません。"
+      },
+      "auto_rank_cap": {
+        "name": "Autoランク上限",
+        "tooltip": "TIES / DARE / DELLAで使うRandomized SVDの安全上限です。目標未達はレポートへ記録します。"
+      },
+      "density": {
+        "name": "Density",
+        "tooltip": "TIESでは大きい値を残す割合、DAREではkeep確率、DELLAではkeep確率範囲の中心値です。"
+      },
+      "sign_consensus": {
+        "name": "符号競合処理",
+        "tooltip": "AutoはTIES / DELLAでON、DAREでOFF。多数側と逆方向の寄与を要素ごとに除外します。"
+      },
+      "della_half_width": {
+        "name": "DELLA 半幅",
+        "tooltip": "大きさ順位に応じたkeep確率の半幅です。density±半幅が(0,1]内になる必要があります。"
+      },
+      "output_scale": {
+        "name": "全体強度",
+        "tooltip": "各LoRA比率を適用した後の全体倍率です。通常は1.0です。"
+      },
+      "output_dtype": {
+        "name": "保存精度",
+        "tooltip": "計算は常にFP32で行い、ここでは保存Tensorのdtypeだけを指定します。"
+      },
+      "device": {
+        "name": "計算デバイス",
+        "tooltip": "Autoはレイヤーごとの必要メモリを見積もり、十分なVRAMがある場合だけCUDAを使います。"
+      },
+      "fallback_policy": {
+        "name": "OOM時の処理",
+        "tooltip": "auto_cpuは設定を変更せず、OOMした同じレイヤーだけCPUで再実行します。"
+      },
+      "unmatched_policy": {
+        "name": "片側レイヤー",
+        "tooltip": "一部LoRAにしかないレイヤーを比率付きで保持、削除、またはエラーにするかを選びます。"
+      },
+      "compatibility_mode": {
+        "name": "互換性チェック",
+        "tooltip": "safeは共有ターゲットがなく明らかに別系列と判定できる組合せを停止します。"
+      },
+      "seed": {
+        "name": "Seed",
+        "tooltip": "DARE / DELLA / Randomized SVD専用のローカルSeedです。PyTorchのグローバル乱数状態は変更しません。"
+      },
+      "gate_conflict_threshold": {
+        "name": "Gate競合しきい値",
+        "tooltip": "診断専用です。Gate系レイヤーのcosineが -しきい値 未満なら競合として数えます。AutoではGate強度を変更しません。"
+      },
+      "hash_inputs": {
+        "name": "入力Hashを保存",
+        "tooltip": "再現性のため、入力LoRAのSHA-256をrecipeへ保存します。"
+      },
+      "write_report": {
+        "name": "詳細レポート保存",
+        "tooltip": "各レイヤーのランク、energy推定、計算デバイス、警告、recipeをJSONで保存します。"
+      },
+      "krea2_gate_strength": {
+        "name": "Krea2 ゲート強度",
+        "tooltip": "Krea2専用。両方にあるゲート層の倍率です。"
+      },
+      "krea2_opposite_strategy": {
+        "name": "Krea2 逆向きゲート",
+        "tooltip": "Krea2専用。競合時に強い側を採用するか、ゼロにします。"
+      },
+      "krea2_opposite_threshold": {
+        "name": "Krea2 競合しきい値",
+        "tooltip": "Krea2専用。ゲートDeltaのcosineが負のしきい値より小さいと競合と判定します。"
+      },
+      "krea2_gate_rank": {
+        "name": "Krea2 ゲートランク",
+        "tooltip": "Krea2専用。圧縮するゲートのランクです。"
+      },
+      "krea2_balance_mode": {
+        "name": "Krea2 強度均等化",
+        "tooltip": "Krea2専用。両方にあるレイヤーのDeltaノルムを揃えます。"
+      },
+      "krea2_gate_compression": {
+        "name": "Krea2 ゲート圧縮",
+        "tooltip": "Krea2専用。競合していないAttentionゲート、または全ゲートを圧縮します。"
+      },
+      "krea2_normal_compression": {
+        "name": "Krea2 通常層圧縮",
+        "tooltip": "Krea2専用。通常レイヤーを入力の大きい方のランクに圧縮します。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "結果",
+        "tooltip": "保存先、実際のマージ方式、レイヤー数、ランク範囲、Gate競合数、警告数を返します。"
+      }
+    }
+  },
+  "LoRABlendSources": {
+    "display_name": "LoRA Blend Sources",
+    "description": "LoRA 1〜8と比率を指定します。LoRA 3〜8はAdvancedを開いて追加します。",
+    "inputs": {
+      "lora_1": {
+        "name": "LoRA 1",
+        "tooltip": "1個目のLoRAファイル。ComfyUIが扱う主要なStandard LoRA factor形式を自動認識します。"
+      },
+      "weight_1": {
+        "name": "比率 1 (%)",
+        "tooltip": "パーセント指定です。normalizeでは選択中の正の比率を合計100%になるよう正規化します。"
+      },
+      "lora_2": {
+        "name": "LoRA 2",
+        "tooltip": "2個目のLoRAファイル。(none)なら1個のLoRAをランク変換・dtype変換する用途にも使えます。"
+      },
+      "weight_2": {
+        "name": "比率 2 (%)",
+        "tooltip": "パーセント指定です。例: 30 / 70ならDeltaを30:70で合成します。"
+      },
+      "lora_3": {
+        "name": "LoRA 3（追加）",
+        "tooltip": "追加する3個目のLoRAです。"
+      },
+      "weight_3": {
+        "name": "比率 3 (%)",
+        "tooltip": "LoRA 3の比率です。"
+      },
+      "lora_4": {
+        "name": "LoRA 4（追加）",
+        "tooltip": "追加する4個目のLoRAです。"
+      },
+      "weight_4": {
+        "name": "比率 4 (%)",
+        "tooltip": "LoRA 4の比率です。"
+      },
+      "lora_5": {
+        "name": "LoRA 5（追加）",
+        "tooltip": "追加する5個目のLoRAです。"
+      },
+      "weight_5": {
+        "name": "比率 5 (%)",
+        "tooltip": "LoRA 5の比率です。"
+      },
+      "lora_6": {
+        "name": "LoRA 6（追加）",
+        "tooltip": "追加する6個目のLoRAです。"
+      },
+      "weight_6": {
+        "name": "比率 6 (%)",
+        "tooltip": "LoRA 6の比率です。"
+      },
+      "lora_7": {
+        "name": "LoRA 7（追加）",
+        "tooltip": "追加する7個目のLoRAです。"
+      },
+      "weight_7": {
+        "name": "比率 7 (%)",
+        "tooltip": "LoRA 7の比率です。"
+      },
+      "lora_8": {
+        "name": "LoRA 8（追加）",
+        "tooltip": "追加する8個目のLoRAです。"
+      },
+      "weight_8": {
+        "name": "比率 8 (%)",
+        "tooltip": "LoRA 8の比率です。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "LoRA構成",
+        "tooltip": "選択したLoRAと比率をBlend Oneへ渡します。"
+      }
+    }
+  },
+  "LoRABlendOneSplit": {
+    "display_name": "LoRA Blend One",
+    "description": "選択したLoRAを1つのsafetensorsに合成・保存します。普段使わない数値・診断設定はAdvancedを開きます。",
+    "inputs": {
+      "sources": {
+        "name": "LoRA構成",
+        "tooltip": "LoRA Blend Sourcesの出力を接続します。"
+      },
+      "output_rank": {
+        "name": "出力ランク",
+        "tooltip": "Autoでは圧縮設定（Krea2は専用設定）に従います。ランク指定時はenergyやnoneを含め、全出力層に上限を適用します。"
+      },
+      "filename_prefix": {
+        "name": "保存名",
+        "tooltip": "ComfyUI/output配下の保存名です。重複防止用の連番が自動で付きます。"
+      },
+      "merge_method": {
+        "name": "マージ方式",
+        "tooltip": "AutoはWeightedです。Krea2 Gate-Awareは2個のLoRAに直接比率を適用し、ゲート競合を処理します。TIES / DARE / DELLAも選択できます。"
+      },
+      "weight_mode": {
+        "name": "比率モード",
+        "tooltip": "通常方式ではnormalizeまたはdirectを選択します。Krea2 Gate-Awareは常に比率を直接使用します（50 = 0.5）。"
+      },
+      "compression_mode": {
+        "name": "圧縮",
+        "tooltip": "通常方式の圧縮設定です。Weightedのnoneは出力ランクAutoなら厳密結合し、低いランクを指定すると圧縮します。Krea2は専用設定を使います。"
+      },
+      "custom_rank": {
+        "name": "カスタムランク",
+        "tooltip": "出力ランクでCustomを選んだ場合に使用します。"
+      },
+      "energy_target": {
+        "name": "Energy目標",
+        "tooltip": "数値的なDelta energyの目標です。画像品質の保持率ではありません。"
+      },
+      "auto_rank_cap": {
+        "name": "Autoランク上限",
+        "tooltip": "TIES / DARE / DELLAで使うRandomized SVDの安全上限です。目標未達はレポートへ記録します。"
+      },
+      "density": {
+        "name": "Density",
+        "tooltip": "TIESでは大きい値を残す割合、DAREではkeep確率、DELLAではkeep確率範囲の中心値です。"
+      },
+      "sign_consensus": {
+        "name": "符号競合処理",
+        "tooltip": "AutoはTIES / DELLAでON、DAREでOFF。多数側と逆方向の寄与を要素ごとに除外します。"
+      },
+      "della_half_width": {
+        "name": "DELLA 半幅",
+        "tooltip": "大きさ順位に応じたkeep確率の半幅です。density±半幅が(0,1]内になる必要があります。"
+      },
+      "output_scale": {
+        "name": "全体強度",
+        "tooltip": "各LoRA比率を適用した後の全体倍率です。通常は1.0です。"
+      },
+      "output_dtype": {
+        "name": "保存精度",
+        "tooltip": "計算は常にFP32で行い、ここでは保存Tensorのdtypeだけを指定します。"
+      },
+      "device": {
+        "name": "計算デバイス",
+        "tooltip": "Autoはレイヤーごとの必要メモリを見積もり、十分なVRAMがある場合だけCUDAを使います。"
+      },
+      "fallback_policy": {
+        "name": "OOM時の処理",
+        "tooltip": "auto_cpuは設定を変更せず、OOMした同じレイヤーだけCPUで再実行します。"
+      },
+      "unmatched_policy": {
+        "name": "片側レイヤー",
+        "tooltip": "一部LoRAにしかないレイヤーを比率付きで保持、削除、またはエラーにするかを選びます。"
+      },
+      "compatibility_mode": {
+        "name": "互換性チェック",
+        "tooltip": "safeは共有ターゲットがなく明らかに別系列と判定できる組合せを停止します。"
+      },
+      "seed": {
+        "name": "Seed",
+        "tooltip": "DARE / DELLA / Randomized SVD専用のローカルSeedです。PyTorchのグローバル乱数状態は変更しません。"
+      },
+      "gate_conflict_threshold": {
+        "name": "Gate競合しきい値",
+        "tooltip": "診断専用です。Gate系レイヤーのcosineが -しきい値 未満なら競合として数えます。AutoではGate強度を変更しません。"
+      },
+      "hash_inputs": {
+        "name": "入力Hashを保存",
+        "tooltip": "再現性のため、入力LoRAのSHA-256をrecipeへ保存します。"
+      },
+      "write_report": {
+        "name": "詳細レポート保存",
+        "tooltip": "各レイヤーのランク、energy推定、計算デバイス、警告、recipeをJSONで保存します。"
+      },
+      "krea2_gate_strength": {
+        "name": "Krea2 ゲート強度",
+        "tooltip": "Krea2専用。両方にあるゲート層の倍率です。"
+      },
+      "krea2_opposite_strategy": {
+        "name": "Krea2 逆向きゲート",
+        "tooltip": "Krea2専用。競合時に強い側を採用するか、ゼロにします。"
+      },
+      "krea2_opposite_threshold": {
+        "name": "Krea2 競合しきい値",
+        "tooltip": "Krea2専用。ゲートDeltaのcosineが負のしきい値より小さいと競合と判定します。"
+      },
+      "krea2_gate_rank": {
+        "name": "Krea2 ゲートランク",
+        "tooltip": "Krea2専用。圧縮するゲートのランクです。"
+      },
+      "krea2_balance_mode": {
+        "name": "Krea2 強度均等化",
+        "tooltip": "Krea2専用。両方にあるレイヤーのDeltaノルムを揃えます。"
+      },
+      "krea2_gate_compression": {
+        "name": "Krea2 ゲート圧縮",
+        "tooltip": "Krea2専用。競合していないAttentionゲート、または全ゲートを圧縮します。"
+      },
+      "krea2_normal_compression": {
+        "name": "Krea2 通常層圧縮",
+        "tooltip": "Krea2専用。通常レイヤーを入力の大きい方のランクに圧縮します。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "結果",
+        "tooltip": "保存先、実際のマージ方式、レイヤー数、ランク範囲、Gate競合数、警告数を返します。"
+      }
+    }
+  }
+}

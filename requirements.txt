@@ -1,0 +1,1 @@
+# No extra dependencies. Uses torch and safetensors supplied by ComfyUI.

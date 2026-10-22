@@ -1,0 +1,394 @@
+{
+  "LoRABlendOne": {
+    "display_name": "LoRA Blend One (Legacy)",
+    "description": "Merge up to eight compatible Standard LoRAs into one verified safetensors file. Auto uses a weighted delta merge; Advanced exposes TIES, DARE, DELLA, rank/compression, dtype, device, compatibility, and reproducibility controls.",
+    "inputs": {
+      "lora_1": {
+        "name": "LoRA 1",
+        "tooltip": "First LoRA file. Common Standard LoRA factor formats supported by ComfyUI are recognized."
+      },
+      "weight_1": {
+        "name": "Weight 1 (%)",
+        "tooltip": "Weight in percent. Normalize mode converts the selected positive weights into ratios summing to 100%."
+      },
+      "lora_2": {
+        "name": "LoRA 2",
+        "tooltip": "Second LoRA file. Use (none) to process a single LoRA for rank or dtype conversion."
+      },
+      "weight_2": {
+        "name": "Weight 2 (%)",
+        "tooltip": "Weight in percent. Example: 30 and 70 produces a 30:70 weighted delta merge."
+      },
+      "output_rank": {
+        "name": "Output Rank",
+        "tooltip": "Auto follows Compression (or Krea2 defaults). A selected rank caps every output layer, including energy and none compression."
+      },
+      "filename_prefix": {
+        "name": "Filename Prefix",
+        "tooltip": "Output filename prefix under ComfyUI/output. A unique counter is appended."
+      },
+      "lora_3": {
+        "name": "LoRA 3 (optional)",
+        "tooltip": "Optional third LoRA."
+      },
+      "weight_3": {
+        "name": "Weight 3 (%)",
+        "tooltip": "Weight for LoRA 3."
+      },
+      "lora_4": {
+        "name": "LoRA 4 (optional)",
+        "tooltip": "Optional fourth LoRA."
+      },
+      "weight_4": {
+        "name": "Weight 4 (%)",
+        "tooltip": "Weight for LoRA 4."
+      },
+      "lora_5": {
+        "name": "LoRA 5 (optional)",
+        "tooltip": "Optional fifth LoRA."
+      },
+      "weight_5": {
+        "name": "Weight 5 (%)",
+        "tooltip": "Weight for LoRA 5."
+      },
+      "lora_6": {
+        "name": "LoRA 6 (optional)",
+        "tooltip": "Optional sixth LoRA."
+      },
+      "weight_6": {
+        "name": "Weight 6 (%)",
+        "tooltip": "Weight for LoRA 6."
+      },
+      "lora_7": {
+        "name": "LoRA 7 (optional)",
+        "tooltip": "Optional seventh LoRA."
+      },
+      "weight_7": {
+        "name": "Weight 7 (%)",
+        "tooltip": "Weight for LoRA 7."
+      },
+      "lora_8": {
+        "name": "LoRA 8 (optional)",
+        "tooltip": "Optional eighth LoRA."
+      },
+      "weight_8": {
+        "name": "Weight 8 (%)",
+        "tooltip": "Weight for LoRA 8."
+      },
+      "merge_method": {
+        "name": "Merge Method",
+        "tooltip": "Auto uses Weighted. Krea2 Gate-Aware uses two LoRAs and applies direct percentages with gate conflict handling; TIES, DARE, and DELLA remain available."
+      },
+      "weight_mode": {
+        "name": "Weight Mode",
+        "tooltip": "Standard methods: normalize or direct. Krea2 Gate-Aware always uses percentages directly (50 = 0.5)."
+      },
+      "compression_mode": {
+        "name": "Compression",
+        "tooltip": "Compression for standard methods. Weighted none is exact with Output Rank Auto; a lower selected rank compresses. Krea2 uses its dedicated controls."
+      },
+      "custom_rank": {
+        "name": "Custom Rank",
+        "tooltip": "Used when Output Rank is Custom."
+      },
+      "energy_target": {
+        "name": "Energy Target",
+        "tooltip": "Numerical delta energy target. It is not an image-quality percentage."
+      },
+      "auto_rank_cap": {
+        "name": "Auto Rank Cap",
+        "tooltip": "Safety cap for randomized SVD in TIES/DARE/DELLA Auto rank."
+      },
+      "density": {
+        "name": "Density",
+        "tooltip": "TIES magnitude keep fraction, DARE keep probability, or DELLA center keep probability."
+      },
+      "sign_consensus": {
+        "name": "Sign Consensus",
+        "tooltip": "Auto enables it for TIES/DELLA and disables it for DARE."
+      },
+      "della_half_width": {
+        "name": "DELLA Half Width",
+        "tooltip": "Half-width of DELLA's magnitude-ranked keep-probability range."
+      },
+      "output_scale": {
+        "name": "Output Scale",
+        "tooltip": "Global multiplier after source weights."
+      },
+      "output_dtype": {
+        "name": "Storage Dtype",
+        "tooltip": "Compute is FP32; this selects the saved tensor dtype."
+      },
+      "device": {
+        "name": "Compute Device",
+        "tooltip": "Auto selects CUDA only when estimated working memory fits comfortably."
+      },
+      "fallback_policy": {
+        "name": "OOM Fallback",
+        "tooltip": "auto_cpu retries an OOM layer on CPU without changing merge settings."
+      },
+      "unmatched_policy": {
+        "name": "Unmatched Layers",
+        "tooltip": "How to handle a layer present in only some selected LoRAs."
+      },
+      "compatibility_mode": {
+        "name": "Compatibility",
+        "tooltip": "Safe mode blocks obvious cross-architecture disjoint merges."
+      },
+      "seed": {
+        "name": "Seed",
+        "tooltip": "Local deterministic seed for stochastic merge/refactor operations."
+      },
+      "gate_conflict_threshold": {
+        "name": "Gate Conflict Threshold",
+        "tooltip": "Diagnostic cosine threshold only; Auto does not alter gate strengths."
+      },
+      "hash_inputs": {
+        "name": "Hash Inputs",
+        "tooltip": "Store SHA-256 hashes of input LoRAs in the recipe."
+      },
+      "write_report": {
+        "name": "Write Report",
+        "tooltip": "Write a detailed JSON sidecar report next to the merged safetensors file."
+      },
+      "krea2_gate_strength": {
+        "name": "Krea2 Gate Strength",
+        "tooltip": "Krea2 only: multiply matched gate layers after source strengths."
+      },
+      "krea2_opposite_strategy": {
+        "name": "Krea2 Opposing Gates",
+        "tooltip": "Krea2 only: keep the stronger opposing gate or zero it."
+      },
+      "krea2_opposite_threshold": {
+        "name": "Krea2 Opposite Threshold",
+        "tooltip": "Krea2 only: gate cosine below the negative threshold counts as a conflict."
+      },
+      "krea2_gate_rank": {
+        "name": "Krea2 Gate Rank",
+        "tooltip": "Krea2 only: rank for compressed gates."
+      },
+      "krea2_balance_mode": {
+        "name": "Krea2 Balance",
+        "tooltip": "Krea2 only: optionally equalize matched layer norms."
+      },
+      "krea2_gate_compression": {
+        "name": "Krea2 Gate Compression",
+        "tooltip": "Krea2 only: compress attention gates or all gates when they do not conflict."
+      },
+      "krea2_normal_compression": {
+        "name": "Krea2 Normal Compression",
+        "tooltip": "Krea2 only: optionally compress ordinary matched layers to the larger input rank."
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "info",
+        "tooltip": "Saved path, resolved method, layer/rank summary, gate conflict count, and warning count."
+      }
+    }
+  },
+  "LoRABlendSources": {
+    "display_name": "LoRA Blend Sources",
+    "description": "Select 1-8 LoRAs and their percentages. Open Advanced to add LoRAs 3-8.",
+    "inputs": {
+      "lora_1": {
+        "name": "LoRA 1",
+        "tooltip": "First LoRA file. Common Standard LoRA factor formats supported by ComfyUI are recognized."
+      },
+      "weight_1": {
+        "name": "Weight 1 (%)",
+        "tooltip": "Weight in percent. Normalize mode converts the selected positive weights into ratios summing to 100%."
+      },
+      "lora_2": {
+        "name": "LoRA 2",
+        "tooltip": "Second LoRA file. Use (none) to process a single LoRA for rank or dtype conversion."
+      },
+      "weight_2": {
+        "name": "Weight 2 (%)",
+        "tooltip": "Weight in percent. Example: 30 and 70 produces a 30:70 weighted delta merge."
+      },
+      "lora_3": {
+        "name": "LoRA 3 (optional)",
+        "tooltip": "Optional third LoRA."
+      },
+      "weight_3": {
+        "name": "Weight 3 (%)",
+        "tooltip": "Weight for LoRA 3."
+      },
+      "lora_4": {
+        "name": "LoRA 4 (optional)",
+        "tooltip": "Optional fourth LoRA."
+      },
+      "weight_4": {
+        "name": "Weight 4 (%)",
+        "tooltip": "Weight for LoRA 4."
+      },
+      "lora_5": {
+        "name": "LoRA 5 (optional)",
+        "tooltip": "Optional fifth LoRA."
+      },
+      "weight_5": {
+        "name": "Weight 5 (%)",
+        "tooltip": "Weight for LoRA 5."
+      },
+      "lora_6": {
+        "name": "LoRA 6 (optional)",
+        "tooltip": "Optional sixth LoRA."
+      },
+      "weight_6": {
+        "name": "Weight 6 (%)",
+        "tooltip": "Weight for LoRA 6."
+      },
+      "lora_7": {
+        "name": "LoRA 7 (optional)",
+        "tooltip": "Optional seventh LoRA."
+      },
+      "weight_7": {
+        "name": "Weight 7 (%)",
+        "tooltip": "Weight for LoRA 7."
+      },
+      "lora_8": {
+        "name": "LoRA 8 (optional)",
+        "tooltip": "Optional eighth LoRA."
+      },
+      "weight_8": {
+        "name": "Weight 8 (%)",
+        "tooltip": "Weight for LoRA 8."
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "sources",
+        "tooltip": "Selected LoRAs and percentages for Blend One."
+      }
+    }
+  },
+  "LoRABlendOneSplit": {
+    "display_name": "LoRA Blend One",
+    "description": "Merge selected LoRAs into one verified safetensors file. Open Advanced for less-used numerical and diagnostic controls.",
+    "inputs": {
+      "sources": {
+        "name": "LoRA Sources",
+        "tooltip": "Connect the output of LoRA Blend Sources."
+      },
+      "output_rank": {
+        "name": "Output Rank",
+        "tooltip": "Auto follows Compression (or Krea2 defaults). A selected rank caps every output layer, including energy and none compression."
+      },
+      "filename_prefix": {
+        "name": "Filename Prefix",
+        "tooltip": "Output filename prefix under ComfyUI/output. A unique counter is appended."
+      },
+      "merge_method": {
+        "name": "Merge Method",
+        "tooltip": "Auto uses Weighted. Krea2 Gate-Aware uses two LoRAs and applies direct percentages with gate conflict handling; TIES, DARE, and DELLA remain available."
+      },
+      "weight_mode": {
+        "name": "Weight Mode",
+        "tooltip": "Standard methods: normalize or direct. Krea2 Gate-Aware always uses percentages directly (50 = 0.5)."
+      },
+      "compression_mode": {
+        "name": "Compression",
+        "tooltip": "Compression for standard methods. Weighted none is exact with Output Rank Auto; a lower selected rank compresses. Krea2 uses its dedicated controls."
+      },
+      "custom_rank": {
+        "name": "Custom Rank",
+        "tooltip": "Used when Output Rank is Custom."
+      },
+      "energy_target": {
+        "name": "Energy Target",
+        "tooltip": "Numerical delta energy target. It is not an image-quality percentage."
+      },
+      "auto_rank_cap": {
+        "name": "Auto Rank Cap",
+        "tooltip": "Safety cap for randomized SVD in TIES/DARE/DELLA Auto rank."
+      },
+      "density": {
+        "name": "Density",
+        "tooltip": "TIES magnitude keep fraction, DARE keep probability, or DELLA center keep probability."
+      },
+      "sign_consensus": {
+        "name": "Sign Consensus",
+        "tooltip": "Auto enables it for TIES/DELLA and disables it for DARE."
+      },
+      "della_half_width": {
+        "name": "DELLA Half Width",
+        "tooltip": "Half-width of DELLA's magnitude-ranked keep-probability range."
+      },
+      "output_scale": {
+        "name": "Output Scale",
+        "tooltip": "Global multiplier after source weights."
+      },
+      "output_dtype": {
+        "name": "Storage Dtype",
+        "tooltip": "Compute is FP32; this selects the saved tensor dtype."
+      },
+      "device": {
+        "name": "Compute Device",
+        "tooltip": "Auto selects CUDA only when estimated working memory fits comfortably."
+      },
+      "fallback_policy": {
+        "name": "OOM Fallback",
+        "tooltip": "auto_cpu retries an OOM layer on CPU without changing merge settings."
+      },
+      "unmatched_policy": {
+        "name": "Unmatched Layers",
+        "tooltip": "How to handle a layer present in only some selected LoRAs."
+      },
+      "compatibility_mode": {
+        "name": "Compatibility",
+        "tooltip": "Safe mode blocks obvious cross-architecture disjoint merges."
+      },
+      "seed": {
+        "name": "Seed",
+        "tooltip": "Local deterministic seed for stochastic merge/refactor operations."
+      },
+      "gate_conflict_threshold": {
+        "name": "Gate Conflict Threshold",
+        "tooltip": "Diagnostic cosine threshold only; Auto does not alter gate strengths."
+      },
+      "hash_inputs": {
+        "name": "Hash Inputs",
+        "tooltip": "Store SHA-256 hashes of input LoRAs in the recipe."
+      },
+      "write_report": {
+        "name": "Write Report",
+        "tooltip": "Write a detailed JSON sidecar report next to the merged safetensors file."
+      },
+      "krea2_gate_strength": {
+        "name": "Krea2 Gate Strength",
+        "tooltip": "Krea2 only: multiply matched gate layers after source strengths."
+      },
+      "krea2_opposite_strategy": {
+        "name": "Krea2 Opposing Gates",
+        "tooltip": "Krea2 only: keep the stronger opposing gate or zero it."
+      },
+      "krea2_opposite_threshold": {
+        "name": "Krea2 Opposite Threshold",
+        "tooltip": "Krea2 only: gate cosine below the negative threshold counts as a conflict."
+      },
+      "krea2_gate_rank": {
+        "name": "Krea2 Gate Rank",
+        "tooltip": "Krea2 only: rank for compressed gates."
+      },
+      "krea2_balance_mode": {
+        "name": "Krea2 Balance",
+        "tooltip": "Krea2 only: optionally equalize matched layer norms."
+      },
+      "krea2_gate_compression": {
+        "name": "Krea2 Gate Compression",
+        "tooltip": "Krea2 only: compress attention gates or all gates when they do not conflict."
+      },
+      "krea2_normal_compression": {
+        "name": "Krea2 Normal Compression",
+        "tooltip": "Krea2 only: optionally compress ordinary matched layers to the larger input rank."
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "info",
+        "tooltip": "Saved path, resolved method, layer/rank summary, gate conflict count, and warning count."
+      }
+    }
+  }
+}

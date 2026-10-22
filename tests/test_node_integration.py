@@ -1,0 +1,176 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+import tempfile
+import types
+import unittest
+from pathlib import Path
+
+import torch
+from safetensors import safe_open
+from safetensors.torch import save_file
+
+
+class NodeIntegrationTests(unittest.TestCase):
+    def test_package_import_and_end_to_end_node_save(self):
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            loras = base / "loras"
+            output = base / "output"
+            loras.mkdir(); output.mkdir()
+            target = "diffusion_model.layers.0.attention.to_q"
+            for i in range(3):
+                g = torch.Generator().manual_seed(500 + i)
+                rank = 4
+                save_file({
+                    f"{target}.lora_A.weight": torch.randn(rank, 12, generator=g),
+                    f"{target}.lora_B.weight": torch.randn(16, rank, generator=g),
+                    f"{target}.alpha": torch.tensor(float(rank)),
+                }, str(loras / f"l{i}.safetensors"))
+
+            folder_paths = types.ModuleType("folder_paths")
+            folder_paths.get_filename_list = lambda category: sorted(p.name for p in loras.glob("*.safetensors"))
+            def get_full_path_or_raise(category, name):
+                p = loras / name
+                if not p.is_file():
+                    raise FileNotFoundError(name)
+                return str(p)
+            folder_paths.get_full_path_or_raise = get_full_path_or_raise
+            folder_paths.get_output_directory = lambda: str(output)
+            def get_save_image_path(prefix, out_dir):
+                p = Path(prefix)
+                subfolder = str(p.parent) if str(p.parent) != "." else ""
+                folder = Path(out_dir) / subfolder
+                folder.mkdir(parents=True, exist_ok=True)
+                return str(folder), p.name, 1, subfolder, prefix
+            folder_paths.get_save_image_path = get_save_image_path
+            sys.modules["folder_paths"] = folder_paths
+
+            comfy = types.ModuleType("comfy")
+            mm = types.ModuleType("comfy.model_management")
+            mm.throw_exception_if_processing_interrupted = lambda: None
+            cu = types.ModuleType("comfy.utils")
+            class ProgressBar:
+                def __init__(self, total): self.total = total; self.value = 0
+                def update(self, n): self.value += n
+            cu.ProgressBar = ProgressBar
+            comfy.model_management = mm
+            comfy.utils = cu
+            sys.modules["comfy"] = comfy
+            sys.modules["comfy.model_management"] = mm
+            sys.modules["comfy.utils"] = cu
+
+            package_name = "lbo_integration_pkg"
+            spec = importlib.util.spec_from_file_location(
+                package_name,
+                root / "__init__.py",
+                submodule_search_locations=[str(root)],
+            )
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[package_name] = module
+            assert spec.loader is not None
+            spec.loader.exec_module(module)
+            self.assertEqual(module.WEB_DIRECTORY, "./web")
+            self.assertTrue((root / "web" / "accordion.js").is_file())
+            Node = module.NODE_CLASS_MAPPINGS["LoRABlendOne"]
+            schema = Node.INPUT_TYPES()
+            self.assertIn("tooltip", schema["required"]["lora_1"][1])
+            self.assertTrue(schema["optional"]["merge_method"][1]["advanced"])
+
+            result = Node().merge(
+                "l0.safetensors", 20.0,
+                "l1.safetensors", 30.0,
+                "16",
+                "loras/integration",
+                lora_3="l2.safetensors",
+                weight_3=50.0,
+                merge_method="Weighted",
+                weight_mode="normalize",
+                compression_mode="fixed_rank",
+                custom_rank=16,
+                energy_target=0.999,
+                auto_rank_cap=64,
+                density=0.90,
+                sign_consensus="auto",
+                della_half_width=0.05,
+                output_scale=1.0,
+                output_dtype="fp16",
+                device="cpu",
+                fallback_policy="auto_cpu",
+                unmatched_policy="scaled_carry",
+                compatibility_mode="safe",
+                seed=123,
+                gate_conflict_threshold=0.05,
+                hash_inputs=True,
+                write_report=True,
+            )
+            self.assertIn("Saved", result["result"][0])
+            self.assertEqual(result["ui"]["model_detection"], ["Standard LoRA"])
+            out = output / "loras" / "integration_00001_.safetensors"
+            self.assertTrue(out.exists())
+            self.assertTrue(out.with_suffix(".safetensors.report.json").exists())
+            with safe_open(str(out), framework="pt", device="cpu") as f:
+                meta = f.metadata() or {}
+                self.assertEqual(meta.get("lbo_method"), "Weighted")
+                self.assertEqual(f.get_slice(f"{target}.lora_A.weight").get_dtype(), "F16")
+                self.assertEqual(f.get_slice(f"{target}.lora_A.weight").get_shape()[0], 12)  # true merged rank <= sum input ranks
+
+            Sources = module.NODE_CLASS_MAPPINGS["LoRABlendSources"]
+            Blend = module.NODE_CLASS_MAPPINGS["LoRABlendOneSplit"]
+            source_schema = Sources.INPUT_TYPES()
+            blend_schema = Blend.INPUT_TYPES()
+            self.assertEqual(set(source_schema["required"]), {"lora_1", "weight_1", "lora_2", "weight_2"})
+            self.assertEqual(set(blend_schema["required"]), {"sources", "output_rank", "filename_prefix"})
+            self.assertTrue(source_schema["optional"]["lora_3"][1]["advanced"])
+            for key in ("merge_method", "weight_mode", "compression_mode", "output_dtype"):
+                self.assertNotIn("advanced", blend_schema["optional"][key][1])
+            self.assertEqual(blend_schema["optional"]["seed"][1]["default"], 0)
+            self.assertTrue(blend_schema["optional"]["seed"][1]["advanced"])
+            self.assertFalse(blend_schema["optional"]["write_report"][1]["default"])
+            self.assertTrue(blend_schema["optional"]["write_report"][1]["advanced"])
+            self.assertNotIn("weight_mode", source_schema["optional"])
+
+            sources = Sources().select(
+                "l0.safetensors", 20.0, "l1.safetensors", 30.0,
+                lora_3="l2.safetensors", weight_3=50.0,
+            )[0]
+            split_result = Blend().merge(
+                sources, "16", "loras/split",
+                merge_method="Weighted", weight_mode="normalize",
+                compression_mode="fixed_rank", output_dtype="fp16", device="cpu",
+            )
+            self.assertIn("Saved", split_result["result"][0])
+            split_out = output / "loras" / "split_00001_.safetensors"
+            self.assertTrue(split_out.exists())
+            self.assertFalse(split_out.with_suffix(".safetensors.report.json").exists())
+            with safe_open(str(out), framework="pt", device="cpu") as old_file, safe_open(str(split_out), framework="pt", device="cpu") as split_file:
+                self.assertEqual(set(old_file.keys()), set(split_file.keys()))
+                for key in old_file.keys():
+                    self.assertTrue(torch.equal(old_file.get_tensor(key), split_file.get_tensor(key)), key)
+
+            krea_sources = Sources().select("l0.safetensors", 20.0, "l1.safetensors", 30.0)[0]
+            Blend().merge(krea_sources, "Auto", "loras/krea2",
+                          merge_method="Krea2 Gate-Aware", device="cpu", hash_inputs=False)
+            with safe_open(str(output / "loras" / "krea2_00001_.safetensors"), framework="pt", device="cpu") as f:
+                self.assertEqual(f.metadata()["lbo_method"], "Krea2 Gate-Aware")
+                recipe = json.loads(f.metadata()["lbo_recipe_json"])
+                self.assertEqual([x["weight"] for x in recipe["sources"]], [0.2, 0.3])
+
+            moss_target = "diffusion_model.layers.0.proj.o"
+            save_file({moss_target + ".lora_A.weight": torch.ones(1, 3),
+                       moss_target + ".lora_B.weight": torch.ones(4, 1)},
+                      str(loras / "moss.safetensors"), metadata={"ss_base_model_version": "moss_image"})
+            moss = Blend().merge(((1, "moss.safetensors", 100.),), "Auto", "loras/moss_status",
+                                 device="cpu", hash_inputs=False)
+            self.assertEqual(moss["ui"]["model_detection"], ["MOSS-Image"])
+            self.assertIn("model=MOSS-Image", moss["result"][0])
+            legacy = Node().merge("moss.safetensors", 100., "(none)", 0., "Auto", "loras/moss_legacy_status",
+                                  device="cpu", hash_inputs=False)
+            self.assertEqual(legacy["ui"]["model_detection"], ["MOSS-Image"])
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
