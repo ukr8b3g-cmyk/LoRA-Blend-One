@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add the supplied three-node workflow template with validated settings and Seed 0 / fixed.
+- Follow ComfyUI's locale for custom Advanced and model detection UI; default to English.
 - Split source selection and merging into two connected nodes; preserve the legacy node.
 - Add an Advanced accordion, Seed default 0, and report-off default on the two-node path.
 - Make numeric Output Rank constrain all standard compression modes.

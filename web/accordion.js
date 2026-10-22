@@ -1,4 +1,5 @@
 import { app } from '../../scripts/app.js';
+import { text, watchLocale } from './i18n.js';
 
 const NODE_NAMES = new Set(['LoRABlendSources', 'LoRABlendOneSplit']);
 const STATE_KEY = 'lora_blend_advanced_open';
@@ -21,7 +22,7 @@ function installAccordion(node, nodeData) {
         elements: [...new Set([widget.element, widget.inputEl].filter(Boolean))]
             .map(element => [element, element.style?.display || '']),
     }]));
-    const header = node.addWidget('button', '▶ 詳細設定 / Advanced', null, () => {
+    const header = node.addWidget('button', `▶ ${text(app, 'Advanced', '詳細設定')}`, null, () => {
         node.graph?.beforeChange?.();
         node.properties ??= {};
         node.properties[STATE_KEY] = !node.properties[STATE_KEY];
@@ -35,7 +36,7 @@ function installAccordion(node, nodeData) {
     function refresh() {
         const open = node.properties?.[STATE_KEY] === true;
         const krea2 = original.find(widget => widget.name === 'merge_method')?.value === 'Krea2 Gate-Aware';
-        header.name = `${open ? '▼' : '▶'} 詳細設定 / Advanced`;
+        header.name = `${open ? '▼' : '▶'} ${text(app, 'Advanced', '詳細設定')}`;
         for (const widget of advanced) {
             const saved = presentation.get(widget);
             const visible = open && (!widget.name.startsWith('krea2_') || krea2);
@@ -74,6 +75,7 @@ function installAccordion(node, nodeData) {
         };
     }
     node.loraBlendAccordion = { refresh };
+    watchLocale(app, node, refresh);
     refresh();
 }
 

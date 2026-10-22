@@ -1,4 +1,5 @@
 import { app } from '../../scripts/app.js';
+import { text, watchLocale } from './i18n.js';
 
 const MERGE_NODES = new Set(['LoRABlendOne', 'LoRABlendOneSplit']);
 const STATUS_HEIGHT = 26;
@@ -17,6 +18,7 @@ app.registerExtension({
                 return [size[0], size[1] + STATUS_HEIGHT];
             };
             this.setSize(this.computeSize());
+            watchLocale(app, this, () => (this.graph || app.graph)?.setDirtyCanvas?.(true, true));
             return result;
         };
 
@@ -33,7 +35,9 @@ app.registerExtension({
             const result = draw?.call(this, ctx, ...args);
             if (this.flags?.collapsed) return result;
             const model = this.loraBlendDetectedModel;
-            const label = model ? `前回のモデル判定：${model}` : 'モデル判定：実行後に表示';
+            const label = model
+                ? text(app, `Last detected model: ${model}`, `前回のモデル判定：${model}`)
+                : text(app, 'Model detection: run to detect', 'モデル判定：実行後に表示');
             const y = this.size[1] - STATUS_HEIGHT + 3;
             ctx.save();
             ctx.fillStyle = model === 'MOSS-Image' ? '#163d2d' : '#252a34';

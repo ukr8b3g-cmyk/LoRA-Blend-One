@@ -1,3 +1,5 @@
+[English README](README.md)
+
 # LoRA Blend One — 日本語ガイド
 
 複数の互換LoRAをブレンドし、ComfyUIで再利用できる1つの `.safetensors` に保存するカスタムノードです。
@@ -16,6 +18,8 @@ ZIPの場合は `ComfyUI/custom_nodes/ComfyUI-LoRA-Blend-One/__init__.py` とな
 
 ## 基本操作
 
+[LoRA Blend Oneテンプレート](example_workflows/LoRA_Blend_One.json)をComfyUIで開くか、ComfyUI再起動後に **ワークフロー → テンプレートを参照** から本パッケージを選びます。Sources → Blend One → Preview Anyを接続済みです。LoRAは自分のファイルを選択してください。出力ランク16、シード0・固定、詳細レポートオフで開始します。
+
 1. `model/merging/LoRA Blend One` から **LoRA Blend Sources** と **LoRA Blend One** を追加します。
 2. `sources` 同士を接続します。
 3. 同じベースモデル向けのLoRAを選び、比率を指定します。
@@ -25,6 +29,10 @@ ZIPの場合は `ComfyUI/custom_nodes/ComfyUI-LoRA-Blend-One/__init__.py` とな
 既定では `ComfyUI/output/loras/LoRA_Blend_One_00001_.safetensors` などへ保存されます。生成に使う際は `ComfyUI/models/loras/` または設定済みのLoRAフォルダへコピーし、ファイル一覧を更新して通常のLoRAローダーで選んでください。
 
 SourcesのAdvancedを開くとLoRA 3～8を指定できます。Seed（初期値0）や使用頻度の低い数値・診断項目もAdvancedにあります。2ノード構成の詳細JSONレポートは初期値オフです。旧ワークフロー向けに **LoRA Blend One (Legacy)** も維持しています。
+
+## UIの言語
+
+基本表示は英語です。ComfyUIの **設定** で **言語（Language）**（`Comfy.Locale`）を検索し、**日本語** にすると、項目名・ツールチップ・詳細設定ボタン・モデル判定表示が日本語になります。英語に戻すと英語表示になります。AutoやKrea2 Gate-Awareなどの方式名は共通です。
 
 ## 対応範囲とランク
 

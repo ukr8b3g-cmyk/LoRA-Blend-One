@@ -1,3 +1,5 @@
+[日本語ガイド / Japanese](README.ja.md)
+
 # LoRA Blend One
 
 Blend compatible LoRAs into one reusable `.safetensors` file in ComfyUI.
@@ -31,6 +33,8 @@ Restart ComfyUI and refresh its browser page. This package uses `torch` and `saf
 
 ## Quick start
 
+Open the [LoRA Blend One template](example_workflows/LoRA_Blend_One.json) in ComfyUI, or find it under this package in **Workflow → Browse Templates** after restarting ComfyUI. The template connects Sources → Blend One → Preview Any; select your own LoRAs before running it. It starts at output rank 16 with Seed 0 / fixed and the detailed report off.
+
 1. Add **LoRA Blend Sources** and **LoRA Blend One** from `model/merging/LoRA Blend One`.
 2. Connect `sources` to `sources`.
 3. Select compatible LoRAs and set their percentages, such as **30 / 70**.
@@ -48,6 +52,10 @@ To use the result in generation, copy it to `ComfyUI/models/loras/` or another c
 Open **Advanced** on the Sources node to select LoRAs 3–8. Seed (default 0), numerical controls, and diagnostics are in Advanced on the merge node. The detailed JSON report defaults to off on this two-node path.
 
 The original `LoRABlendOne` node remains available as **LoRA Blend One (Legacy)** for existing workflows.
+
+## Interface language
+
+English is the default interface. In ComfyUI **Settings**, search for **Language** (`Comfy.Locale`) and select **Japanese** to use Japanese field labels, tooltips, Advanced controls, and model detection messages. Select English to switch back. Method identifiers such as Auto and Krea2 Gate-Aware keep their original names.
 
 ## Compatibility
 
