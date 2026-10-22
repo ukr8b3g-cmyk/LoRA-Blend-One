@@ -2,11 +2,21 @@
 
 # LoRA Blend One
 
+![LoRA Blend One — blend compatible LoRAs in ComfyUI](docs/images/lora-blend-one-banner.png)
+
 Blend compatible LoRAs into one reusable `.safetensors` file in ComfyUI.
 
 Use two connected nodes to choose up to eight LoRAs, set their strengths, and save a blend with a chosen rank and storage precision. Includes MOSS-Image format normalization and a dedicated Krea2 Gate-Aware method.
 
 [日本語ガイド](README.ja.md) · [Validation](VALIDATION.md) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE)
+
+## Workflow overview
+
+![Power LoRA Loader, LoRA Blend Sources, and LoRA Blend One in ComfyUI](docs/images/workflow-overview.png)
+
+Left: **Power LoRA Loader (rgthree)**. Center: **LoRA Blend Sources**. Right: **LoRA Blend One**. Connect **Sources → Blend One**.
+
+To copy loader settings, open **Sources → Advanced**, select the **Power LoRA Loader**, then click **Import Enabled LoRAs**. The loader itself needs no cable. This screenshot shows the interface layout; its import selector is still `(none)`. [See the illustrated import guide](#import-power-lora-loader-settings).
 
 ## Features
 

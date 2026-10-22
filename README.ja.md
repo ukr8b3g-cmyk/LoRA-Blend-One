@@ -2,9 +2,19 @@
 
 # LoRA Blend One — 日本語ガイド
 
+![LoRA Blend One — ComfyUIで互換LoRAをブレンド](docs/images/lora-blend-one-banner.png)
+
 複数の互換LoRAをブレンドし、ComfyUIで再利用できる1つの `.safetensors` に保存するカスタムノードです。
 
 [English README](README.md) · [検証状況](VALIDATION.md) · [変更履歴](CHANGELOG.md)
+
+## 画面構成
+
+![ComfyUI上のPower LoRA Loader、LoRA Blend Sources、LoRA Blend One](docs/images/workflow-overview.png)
+
+左が **Power LoRA Loader (rgthree)**、中央が **LoRA Blend Sources**、右が **LoRA Blend One** です。**Sources → Blend One** を接続します。
+
+Loaderの設定を取り込むには、**Sources → Advanced** で **Power LoRA Loader** を選択し、**Import Enabled LoRAs** を押します。Loader自体への配線は不要です。この画像は画面構成の例で、取り込み元はまだ `(none)` です。[画像付きの取り込み手順はこちら](#power-lora-loaderの設定を取り込む)。
 
 ## インストール
 
