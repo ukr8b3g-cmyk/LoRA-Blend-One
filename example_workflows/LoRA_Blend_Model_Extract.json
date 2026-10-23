@@ -1,0 +1,153 @@
+{
+  "id": "8459bc2c-8c55-4747-abc5-18588afbb564",
+  "revision": 0,
+  "last_node_id": 3,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoRABlendModelExtract",
+      "pos": [
+        700,
+        0
+      ],
+      "size": [
+        640,
+        650
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "extraction_plan",
+          "type": "LBO_EXTRACTION_PLAN",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "info",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoRABlendModelExtract",
+        "extract_advanced": false
+      },
+      "widgets_values": [
+        "diffusion_models: SELECT_ORIGINAL_MOSS_MODEL.safetensors",
+        "diffusion_models: SELECT_MODIFIED_MOSS_MODEL.safetensors",
+        "Fixed Rank",
+        32,
+        0.99,
+        "bf16",
+        "loras/LoRA_Extract",
+        64,
+        "auto",
+        "auto",
+        "Stop",
+        "*",
+        0,
+        "fixed",
+        true,
+        true,
+        "Review Only"
+      ],
+      "widgets_values_named": {
+        "base_model": "diffusion_models: SELECT_ORIGINAL_MOSS_MODEL.safetensors",
+        "modified_model": "diffusion_models: SELECT_MODIFIED_MOSS_MODEL.safetensors",
+        "mode": "Fixed Rank",
+        "rank": 32,
+        "energy": 0.99,
+        "dtype": "bf16",
+        "filename_prefix": "loras/LoRA_Extract",
+        "max_rank": 64,
+        "device": "auto",
+        "svd": "auto",
+        "non_lora": "Stop",
+        "key_filter": "*",
+        "seed": 0,
+        "control_after_generate": "fixed",
+        "hash_inputs": true,
+        "write_report": true,
+        "plan_action": "Review Only"
+      },
+      "color": "#243322",
+      "bgcolor": "#375533"
+    },
+    {
+      "id": 3,
+      "type": "LoRABlendModelInspect",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        640,
+        550
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "info",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "extraction_plan",
+          "type": "LBO_EXTRACTION_PLAN",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoRABlendModelInspect",
+        "extract_advanced": false
+      },
+      "widgets_values": [
+        "diffusion_models: SELECT_ORIGINAL_MOSS_MODEL.safetensors",
+        "diffusion_models: SELECT_MODIFIED_MOSS_MODEL.safetensors",
+        "Full Scan",
+        "ComfyUI Loading",
+        false
+      ],
+      "widgets_values_named": {
+        "base_model": "diffusion_models: SELECT_ORIGINAL_MOSS_MODEL.safetensors",
+        "modified_model": "diffusion_models: SELECT_MODIFIED_MOSS_MODEL.safetensors",
+        "scan": "Full Scan",
+        "purpose": "ComfyUI Loading",
+        "allow_partial": false
+      },
+      "color": "#243322",
+      "bgcolor": "#375533"
+    }
+  ],
+  "links": [
+    [
+      1,
+      3,
+      1,
+      1,
+      0,
+      "LBO_EXTRACTION_PLAN"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.85,
+      "offset": [
+        15,
+        80
+      ]
+    }
+  },
+  "version": 0.4
+}

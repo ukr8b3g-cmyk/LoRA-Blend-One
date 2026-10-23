@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Default model extraction to Fixed Rank 32, add rank presets, and keep connected Inspect recommendations advisory until explicitly applied.
+- Show Review Only / Extract and Save as highlighted buttons and include a connected Inspect→Extract distribution template with Review Only defaults.
+- Buffer up to 256 MiB of extracted tensor data for one verified save, retaining disk spooling for larger outputs; document CPU/native-loader validation and the save-only timing comparison.
+
 - Preserve schema widget order in LiteGraph store serialization and repair identifiable early exports with shifted settings.
 - Add the supplied three-node workflow template with validated settings and Seed 0 / fixed.
 - Follow ComfyUI's locale for custom Advanced and model detection UI; default to English.

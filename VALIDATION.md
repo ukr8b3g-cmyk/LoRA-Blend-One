@@ -1,5 +1,17 @@
 # Validation — LoRA Blend One
 
+## Extraction controls and save buffering — 2026-10-23–24
+
+The current suite passed **88 Python tests and 37 JavaScript tests**. Added checks cover connected manual settings versus advisory plans, stale/mismatched model refusal, Review Only without saving, one-time recommendation application, rank presets, English/Japanese help, selected-action button drawing/click handling and serialization, memory/disk writer equivalence, corruption detection, nonfinite/duplicate rejection, cancellation, and owned buffered tensor values. JavaScript uses test Graph/DOM objects; it is not live browser validation.
+
+The corrected **original MOSS SFT BF16 → KR2 SFT BF16** comparison is separate from the earlier Moss_Luc merged-model measurements below. Full Scan checked 462 logical entries, with 168 changed matrices and no nonmatrix changes, in 24.2609 s. Connected Review Only kept manual rank 17 / FP32 alongside recommended rank 32 and saved no files.
+
+Fixed Rank 32 / BF16 / seed 0 / Stop / all targets / input SHA256 enabled / CPU four threads produced a standard LoRA with 168 rank-32 targets: **101,914,936 bytes (101.91 MB / 97.19 MiB)**. Total wall time was 299.9910 s. Measured post-storage relative weight error was **0.965483663133 (96.5484%)**, equivalent to **6.7841%** retained difference energy. This is a capacity-oriented starting rank, not faithful model reconstruction or an image-quality guarantee. Native ComfyUI recognized 168 targets with zero unused keys, and actual Q-slice application matched the expected update.
+
+Using those identical output tensors on the same disk, old/new writer runs took **3.216948 / 0.347441 s**, creating **168 / 0** intermediate part files; all tensors matched. This is a single old-then-new save-only comparison subject to cache effects, not an end-to-end extraction or KJ comparison. The 256 MiB threshold limits buffered tensor payload, not overall RAM usage. Larger outputs retain disk spooling and validation.
+
+The sanitized distribution template passed JSON/link/schema/default/serialization checks and a small CPU Inspect→Extract Review Only run without output files. The running ComfyUI template API listed and served it with Fixed Rank 32 / Review Only. The new extraction controls/template have **not** been visually checked after reload in Chrome; GPU generation and image-quality comparisons remain unperformed. Earlier live blend checks below do not establish those extraction results.
+
 ## Current local checks — 2026-10-23
 
 | Check | Result |

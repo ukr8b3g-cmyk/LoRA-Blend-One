@@ -133,6 +133,8 @@ The dropped blend can be outside the model folders: only its header is read in t
 
 Two additional nodes are available under **model/merging/LoRA Blend One**:
 
+Open the [model extraction template](example_workflows/LoRA_Blend_Model_Extract.json), also available under this package in **Workflow → Browse Templates** after restarting ComfyUI. It connects **Inspect → Extract** and starts with **Full Scan**, **Fixed Rank 32**, BF16, Seed 0 / fixed, and **Review Only**. Replace the model-selection placeholders with your original and modified MOSS-Image models in both nodes, then Run to analyze without saving. Base Model is the original reference model, which can itself be an SFT model. To copy the completed analysis recommendation once, use **Apply Recommendations**; manual settings remain editable. Select **Extract and Save**, then Run, when you want to save the difference. Changing that button alone does not start extraction.
+
 - **LoRA Blend Model Inspect:** compare a base model and its modified model. Header inspection checks supported keys/shapes; **Full Scan** also reads values and checks changed parameters.
 - **LoRA Blend Model Extract:** save `modified - base` using **Fixed Rank**, **Auto Rank**, or **Full Delta**. Select the two registered model files, mode, storage precision, and output prefix. Rank limits, SVD method, device, and non-LoRA policy are in **Advanced**.
 
@@ -140,7 +142,35 @@ Extraction currently supports **single, non-quantized native MOSS-Image Safetens
 
 The default non-LoRA policy **Stop** rejects changed parameters that cannot be represented by the supported A/B factors. **Store Diff** preserves them as ComfyUI `.diff` tensors, producing a **hybrid_delta**; **Exclude With Report** produces an explicitly partial result. Hybrid/Full Delta files require ComfyUI's extended loader and **cannot be used as current Blend One Sources**. This feature does not recover the original training LoRA or guarantee a small output. Files are written inside `ComfyUI/output`; use the saved file in your configured LoRA folder to load it normally.
 
-### Real MOSS extraction results — 2026-10-23
+### Rank controls, recommendations, and saving
+
+New Extract nodes default to **Fixed Rank 32**. **Rank Preset** offers 16 / 32 / 64 / 128 / 256; the Rank field still accepts any integer from 1 to 4096, including 17 or 24, subject to each matrix's dimensions. Auto Rank remains optional, with a default Maximum Rank of 64 that you can raise manually. Fixed Rank does not target 99% energy. Existing workflows retain their saved values.
+
+Inspect displays a readable analysis and recommendation and provides an **extraction_plan** output. Connecting it leaves Extract's settings editable. Connecting, rerunning Inspect, or reopening a workflow never copies recommendations automatically: **Apply Recommendations** copies a completed Full Scan recommendation once, including the model pair, while preserving the output filename. You can then change rank, storage precision, and other settings manually. Required rank and output size are not measured by Full Scan; 32 is a practical starting value, not an accuracy guarantee. Different model pairs or files changed since inspection require a new analysis before connected extraction.
+
+The side-by-side **Review Only** and **Extract and Save** buttons show the selected action with a check mark and amber/green highlighting. The caption explains what the next **Run** does. Selecting a button does not queue work. Review Only displays current manual settings separately from recommendations and saves nothing. Without Inspect connected, Extract runs directly with its manual settings. Extract/Inspect labels stay English; hover help and result explanations follow the English/Japanese locale.
+
+For outputs with up to **256 MiB of saved tensor data**, extraction now buffers tensors in CPU memory and writes once. Larger outputs switch to disk spooling. This limit covers buffered tensor data, not total RAM use. Finite-value checks, full saved-tensor verification, cancellation handling, and non-overwriting publication remain enabled. This changes saving, not SVD or weight-error measurement.
+
+### Current local verification — 2026-10-23–24
+
+**88 Python tests and 37 JavaScript tests passed**, including manual connected settings, English/Japanese help, button selection and workflow serialization, bounded-memory/disk saving, corrupt-output detection, and existing MOSS/Krea2 blending regressions. JavaScript uses a test Graph/DOM, not a live ComfyUI screen.
+
+The corrected comparison **original MOSS SFT BF16 → KR2 SFT BF16** (not the merged Moss_Luc model) passed CPU extraction with Fixed Rank 32, BF16, Seed 0, all targets, Stop, input hashing, and four CPU threads:
+
+| Check | Result |
+| --- | --- |
+| Full Scan | 462 matched entries; 168 changed matrices; no changed nonmatrix parameters; 24.26 s |
+| Connected Review Only | Manual rank 17 / FP32 retained separately from recommended rank 32; no files saved |
+| Saved standard LoRA | 168 rank-32 targets; 101,914,936 bytes / 101.91 MB / 97.19 MiB |
+| Weight reconstruction | 96.5484% relative error; 6.7841% retained difference energy; not an image-quality score |
+| Native ComfyUI loader | 168 targets recognized, zero unused keys; actual Q-slice weight application matched |
+| Extraction through saving | 299.99 s on CPU; no GPU/end-to-end speed comparison |
+| Save-only comparison, identical tensors | 3.21695 s → 0.34744 s; 168 part files → 0; all tensor values matched |
+
+The save-only timings are one old-then-new run on the same disk and include cache effects; they do not establish an overall extraction speedup or a comparison with KJ. Rank 32 favors size and does not faithfully reproduce this model difference. The extraction template passed JSON/schema/link/default checks and a small CPU Inspect→Extract Review Only run with no saved files. The running ComfyUI template-list API and template download both exposed it. **Live checks of the new extraction buttons/template in Chrome, GPU image generation, and image-quality comparisons remain unperformed.** Restart ComfyUI and reload the browser after updating. See [VALIDATION.md](VALIDATION.md) for details.
+
+### Earlier merged-model extraction results — 2026-10-23
 
 The same local pair, `moss_image_sft_bf16.safetensors` → `Moss_Luc-sft-bf16.safetensors`, was tested on CPU with BF16 storage, seed 0, all parameters, and **Store Diff**. Input SHA256 values matched across runs.
 

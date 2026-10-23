@@ -12,7 +12,7 @@ from .model_files import make_plan, read_entry, identity
 from .writer import Spool, finite, publish
 
 
-def extract(base, modified, output_prefix, *, mode='Fixed Rank', rank=16, energy=.99, max_rank=256,
+def extract(base, modified, output_prefix, *, mode='Fixed Rank', rank=32, energy=.99, max_rank=64,
             dtype='bf16', device='auto', svd='auto', non_lora='Stop', key_filter='*', seed=0,
             hash_inputs=True, write_report=True, cancel=lambda: None, progress=lambda *args: None):
     if mode not in ('Fixed Rank', 'Auto Rank', 'Full Delta') or dtype not in ('bf16', 'fp16', 'fp32'):
@@ -132,7 +132,7 @@ def extract(base, modified, output_prefix, *, mode='Fixed Rank', rank=16, energy
                 report['layers'].append({'key': key, 'rank': selected_rank, 'captured_energy': captured,
                                          'relative_error': math.sqrt(err2/norm2), 'max_absolute_error': max_error})
                 spool.add(tensors)
-                progress(f'Layer saved (rank={selected_rank})', key, index+1, len(keys))
+                progress(f'Layer prepared (rank={selected_rank})', key, index+1, len(keys))
                 del tensors, delta
         for source in (a, b):
             if identity(source['path']) != source['identity']:

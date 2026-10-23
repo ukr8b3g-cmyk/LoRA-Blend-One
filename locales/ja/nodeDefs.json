@@ -456,108 +456,174 @@
     }
   },
   "LoRABlendModelInspect": {
-    "display_name": "LoRA Blend モデル差分確認",
+    "display_name": "LoRA Blend Model Inspect",
     "inputs": {
       "base_model": {
-        "name": "元モデル"
+        "name": "Base Model",
+        "tooltip": "学習・マージする前の元のフルモデルです。LoRAではなくモデル本体を選びます。「Modified Model − Base Model」の差分を抽出します。両方とも構造・形状が互換なMOSS-Imageが必要です。形状が合っていても、正しい学習元かどうかは別途確認してください。"
       },
       "modified_model": {
-        "name": "加工済みモデル"
+        "name": "Modified Model",
+        "tooltip": "Base Modelを元に追加学習・マージなどで変更したフルモデルです。LoRAファイルではありません。元と変更後を逆にすると差分の符号も逆になります。同じ重みなら出力しません。現在は単体・非量子化のMOSS-ImageネイティブSafetensorsに対応します。"
       },
       "mode": {
-        "name": "抽出方式"
+        "name": "Extraction Mode",
+        "tooltip": "Fixed Rank：各行列を指定ランクで抽出します（行列寸法が上限）。Auto Rank：保持率を目標に層ごとのランクを選び、Maximum Rankで制限します。Full Delta：SVD圧縮せず差分をそのまま保存します。大容量のComfyUI拡張形式で、通常LoRAではありません。"
       },
       "rank": {
-        "name": "ランク"
+        "name": "Rank",
+        "tooltip": "Fixed Rankで使い、初期値は32です。Rank Presetから16・32・64・128・256を選べます。1〜4096の整数を指定でき、17や24も有効です。8の倍数や2の累乗に限定しません。一般的な例：8／16／32／64／128／256。低いほど通常は小容量ですが、失う差分も増えます。十分な精度を保証するランクはありません。各層の行列寸法も上限になります。"
       },
       "energy": {
-        "name": "保持率目標"
+        "name": "Target Energy",
+        "tooltip": "Auto Rankで使います。0.99は保存精度へ変換する前の重み差分の二乗エネルギー99％を目標とし、相対Frobenius誤差では約10％です。画像の一致率99％という意味ではありません。Maximum Rankが低いと未達になります。BF16／FP16の丸め後は個別の層がわずかに下回る場合もあります。"
       },
       "dtype": {
-        "name": "保存精度"
+        "name": "Storage Type",
+        "tooltip": "保存する因子・差分の精度です。差分・因子の計算はFP32で行います。BF16はFP16より広い値域を扱え、FP32は保存容量が増えます。不正値や保存時のあふれがあれば停止し、精度を勝手に変更しません。"
       },
       "filename_prefix": {
-        "name": "保存名"
+        "name": "Filename Prefix",
+        "tooltip": "ComfyUIで設定された出力フォルダー内の保存名です。サブフォルダーを指定でき、既存ファイルを上書きしない連番が付きます。LoRAフォルダーへ自動登録はしません。Loaderで使う場合は、設定済みLoRAフォルダーに保存ファイルを配置してください。"
       },
       "scan": {
-        "name": "検査の深さ"
+        "name": "Inspection Depth",
+        "tooltip": "Headerは対応するキーと形状を照合しますが、重みの値は比較しません。Full Scanは全重みを読み、有限値を検査し、変更箇所と行列以外の変更を数えます。その分時間がかかります。この検査ノードはLoRAの抽出・保存を行いません。"
       },
       "max_rank": {
-        "name": "最大ランク"
+        "name": "Maximum Rank",
+        "tooltip": "Auto Rankで各行列に許可するランク上限です。全層をこの値にそろえる指定ではありません。低すぎると保持率未達となり、レポートに記録します。上げるほど計算時間・容量が増え、高保持率では元モデルより大きくなる場合もあります。Auto Rankでのみ使用します。"
       },
       "device": {
-        "name": "処理デバイス"
+        "name": "Compute Device",
+        "tooltip": "SVDの計算先です。cpuはCUDAを使わず、cudaはGPUを指定します。autoはメモリ見積もりに余裕があるときだけCUDAを選び、それ以外はCPUを使います。CUDAメモリ不足時は同じ設定でCPUへ再試行します。モデルファイルの読み込みはCPUで行います。"
       },
       "svd": {
-        "name": "SVD方式"
+        "name": "SVD Method",
+        "tooltip": "autoは小さい行列に厳密SVD、大きい行列に乱数を使った近似SVDを使います。exactは時間がかかりますが、全特異値からランクを選びます。randomizedはシード付きの近似で、同じランクでも保持率が低くなる場合があります。Fixed／Auto Rank用で、Full Deltaでは使いません。"
       },
       "non_lora": {
-        "name": "通常LoRAに収まらない変更"
+        "name": "Non-LoRA Changes",
+        "tooltip": "正規化・biasなど、行列以外の変更の扱いです。Stopは停止します。Store Diffは.diffとして残すComfyUI混合形式で、現在のBlend One Sourcesには入力できません。Exclude With Reportは除外して部分抽出（PARTIAL）と記録するため、モデル全体の変更は再現しません。Full Deltaでは選択対象の差分をすべて保存します。"
       },
       "key_filter": {
-        "name": "対象キーのパターン"
+        "name": "Target Key Pattern",
+        "tooltip": "正規化後のパラメーター名に使うワイルドカードです。例：diffusion_model.layers.*.proj.*.weight。*は全対象です。除外した変更箇所はレポートと再構成誤差に含まれ、部分的な差分抽出になります。"
       },
       "seed": {
-        "name": "シード"
+        "name": "Seed",
+        "tooltip": "近似SVDの乱数を再現するためのシードで、画像生成用ではありません。同じ近似を再現する場合は、この値とSeed Behaviorをfixedにします。厳密SVDとFull Deltaの分解処理では使用しません。"
       },
       "hash_inputs": {
-        "name": "入力ハッシュを計算"
+        "name": "Hash Inputs",
+        "tooltip": "両入力ファイル全体のSHA256を計算し、入力の識別・再現確認のために記録します。ファイル読み取りと開始時の待ち時間が増えますが、抽出される重みは変わりません。"
       },
       "write_report": {
-        "name": "レポートを保存"
+        "name": "Write Report",
+        "tooltip": "設定・採用ランク・警告・除外箇所・実測再構成誤差を.safetensors.report.jsonに保存します。レポートの書き込みだけが失敗した場合も、保存済みの本体は成功として残します。"
+      },
+      "purpose": {
+        "name": "Output Purpose",
+        "tooltip": "ComfyUI Loadingは行列以外の変更もStore Diffで保存します。Blend One Sourceは通常LoRA形式のため、変更の除外には明示的な部分抽出の選択が必要です。"
+      },
+      "allow_partial": {
+        "name": "Allow Partial Extraction",
+        "tooltip": "Blend One Source用です。行列以外の変更を除外する部分抽出を明示的に許可します。モデル全体の変更は再現できません。"
+      }
+    },
+    "description": "学習・マージ前のBase Modelと変更後のModified Modelを比較します。抽出する差分はModified − Baseです。MOSS-Imageのモデル本体を選び、LoRAファイルは選びません。",
+    "outputs": {
+      "0": {
+        "name": "info",
+        "tooltip": "抽出の進捗・保存先・形式・層数・相対重み誤差・警告を表示します。重み誤差は画像品質の点数ではありません。Inspectはモデルの構造・値の検査結果を表示し、保存しません。"
+      },
+      "1": {
+        "name": "extraction_plan",
+        "tooltip": "Inspectのextraction_plan出力を接続します。接続時は推奨設定を使用し、切断すると保存してある手動設定に戻ります。"
       }
     }
   },
   "LoRABlendModelExtract": {
-    "display_name": "LoRA Blend モデル差分抽出",
+    "display_name": "LoRA Blend Model Extract",
     "inputs": {
       "base_model": {
-        "name": "元モデル"
+        "name": "Base Model",
+        "tooltip": "学習・マージする前の元のフルモデルです。LoRAではなくモデル本体を選びます。「Modified Model − Base Model」の差分を抽出します。両方とも構造・形状が互換なMOSS-Imageが必要です。形状が合っていても、正しい学習元かどうかは別途確認してください。"
       },
       "modified_model": {
-        "name": "加工済みモデル"
+        "name": "Modified Model",
+        "tooltip": "Base Modelを元に追加学習・マージなどで変更したフルモデルです。LoRAファイルではありません。元と変更後を逆にすると差分の符号も逆になります。同じ重みなら出力しません。現在は単体・非量子化のMOSS-ImageネイティブSafetensorsに対応します。"
       },
       "mode": {
-        "name": "抽出方式"
+        "name": "Extraction Mode",
+        "tooltip": "Fixed Rank：各行列を指定ランクで抽出します（行列寸法が上限）。Auto Rank：保持率を目標に層ごとのランクを選び、Maximum Rankで制限します。Full Delta：SVD圧縮せず差分をそのまま保存します。大容量のComfyUI拡張形式で、通常LoRAではありません。"
       },
       "rank": {
-        "name": "ランク"
+        "name": "Rank",
+        "tooltip": "Fixed Rankで使い、初期値は32です。Rank Presetから16・32・64・128・256を選べます。1〜4096の整数を指定でき、17や24も有効です。8の倍数や2の累乗に限定しません。一般的な例：8／16／32／64／128／256。低いほど通常は小容量ですが、失う差分も増えます。十分な精度を保証するランクはありません。各層の行列寸法も上限になります。"
       },
       "energy": {
-        "name": "保持率目標"
+        "name": "Target Energy",
+        "tooltip": "Auto Rankで使います。0.99は保存精度へ変換する前の重み差分の二乗エネルギー99％を目標とし、相対Frobenius誤差では約10％です。画像の一致率99％という意味ではありません。Maximum Rankが低いと未達になります。BF16／FP16の丸め後は個別の層がわずかに下回る場合もあります。"
       },
       "dtype": {
-        "name": "保存精度"
+        "name": "Storage Type",
+        "tooltip": "保存する因子・差分の精度です。差分・因子の計算はFP32で行います。BF16はFP16より広い値域を扱え、FP32は保存容量が増えます。不正値や保存時のあふれがあれば停止し、精度を勝手に変更しません。"
       },
       "filename_prefix": {
-        "name": "保存名"
+        "name": "Filename Prefix",
+        "tooltip": "ComfyUIで設定された出力フォルダー内の保存名です。サブフォルダーを指定でき、既存ファイルを上書きしない連番が付きます。LoRAフォルダーへ自動登録はしません。Loaderで使う場合は、設定済みLoRAフォルダーに保存ファイルを配置してください。"
       },
       "scan": {
-        "name": "検査の深さ"
+        "name": "Inspection Depth",
+        "tooltip": "Headerは対応するキーと形状を照合しますが、重みの値は比較しません。Full Scanは全重みを読み、有限値を検査し、変更箇所と行列以外の変更を数えます。その分時間がかかります。この検査ノードはLoRAの抽出・保存を行いません。"
       },
       "max_rank": {
-        "name": "最大ランク"
+        "name": "Maximum Rank",
+        "tooltip": "Auto Rankで各行列に許可するランク上限です。全層をこの値にそろえる指定ではありません。低すぎると保持率未達となり、レポートに記録します。上げるほど計算時間・容量が増え、高保持率では元モデルより大きくなる場合もあります。Auto Rankでのみ使用します。"
       },
       "device": {
-        "name": "処理デバイス"
+        "name": "Compute Device",
+        "tooltip": "SVDの計算先です。cpuはCUDAを使わず、cudaはGPUを指定します。autoはメモリ見積もりに余裕があるときだけCUDAを選び、それ以外はCPUを使います。CUDAメモリ不足時は同じ設定でCPUへ再試行します。モデルファイルの読み込みはCPUで行います。"
       },
       "svd": {
-        "name": "SVD方式"
+        "name": "SVD Method",
+        "tooltip": "autoは小さい行列に厳密SVD、大きい行列に乱数を使った近似SVDを使います。exactは時間がかかりますが、全特異値からランクを選びます。randomizedはシード付きの近似で、同じランクでも保持率が低くなる場合があります。Fixed／Auto Rank用で、Full Deltaでは使いません。"
       },
       "non_lora": {
-        "name": "通常LoRAに収まらない変更"
+        "name": "Non-LoRA Changes",
+        "tooltip": "正規化・biasなど、行列以外の変更の扱いです。Stopは停止します。Store Diffは.diffとして残すComfyUI混合形式で、現在のBlend One Sourcesには入力できません。Exclude With Reportは除外して部分抽出（PARTIAL）と記録するため、モデル全体の変更は再現しません。Full Deltaでは選択対象の差分をすべて保存します。"
       },
       "key_filter": {
-        "name": "対象キーのパターン"
+        "name": "Target Key Pattern",
+        "tooltip": "正規化後のパラメーター名に使うワイルドカードです。例：diffusion_model.layers.*.proj.*.weight。*は全対象です。除外した変更箇所はレポートと再構成誤差に含まれ、部分的な差分抽出になります。"
       },
       "seed": {
-        "name": "シード"
+        "name": "Seed",
+        "tooltip": "近似SVDの乱数を再現するためのシードで、画像生成用ではありません。同じ近似を再現する場合は、この値とSeed Behaviorをfixedにします。厳密SVDとFull Deltaの分解処理では使用しません。"
       },
       "hash_inputs": {
-        "name": "入力ハッシュを計算"
+        "name": "Hash Inputs",
+        "tooltip": "両入力ファイル全体のSHA256を計算し、入力の識別・再現確認のために記録します。ファイル読み取りと開始時の待ち時間が増えますが、抽出される重みは変わりません。"
       },
       "write_report": {
-        "name": "レポートを保存"
+        "name": "Write Report",
+        "tooltip": "設定・採用ランク・警告・除外箇所・実測再構成誤差を.safetensors.report.jsonに保存します。レポートの書き込みだけが失敗した場合も、保存済みの本体は成功として残します。"
+      },
+      "extraction_plan": {
+        "name": "Extraction Plan",
+        "tooltip": "Inspectの分析結果を参照します。接続中も設定欄を編集でき、その表示値で実行します。Apply Recommendationsで推奨値を一度だけコピーします。接続・再分析では手動値を上書きしません。"
+      },
+      "plan_action": {
+        "name": "Plan Action",
+        "tooltip": "接続時はReview Onlyで現在の設定と推奨値を確認します。Extract and Saveはこのノードで編集した設定を使用します。推奨値の反映はApply Recommendationsボタンを押したときだけです。未接続でも手動抽出できます。"
+      }
+    },
+    "description": "学習・マージ前のBase Modelと変更後のModified Modelを比較します。抽出する差分はModified − Baseです。MOSS-Imageのモデル本体を選び、LoRAファイルは選びません。",
+    "outputs": {
+      "0": {
+        "name": "info",
+        "tooltip": "抽出の進捗・保存先・形式・層数・相対重み誤差・警告を表示します。重み誤差は画像品質の点数ではありません。Inspectはモデルの構造・値の検査結果を表示し、保存しません。"
       }
     }
   }

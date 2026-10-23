@@ -459,52 +459,87 @@
     "display_name": "LoRA Blend Model Inspect",
     "inputs": {
       "base_model": {
-        "name": "Base Model"
+        "name": "Base Model",
+        "tooltip": "Original full model used as the starting point before fine-tuning or merging. Select model weights, not a LoRA. The extracted difference is Modified Model minus Base Model. Both files must have compatible MOSS-Image architecture and shapes; matching shapes alone does not prove this is the correct training base."
       },
       "modified_model": {
-        "name": "Modified Model"
+        "name": "Modified Model",
+        "tooltip": "Full model after fine-tuning or merging, based on the selected Base Model. This is not a LoRA file. Swapping the two models reverses the difference. Identical weights produce no output. Only single, non-quantized native MOSS-Image Safetensors are currently supported."
       },
       "mode": {
-        "name": "Extraction Mode"
+        "name": "Extraction Mode",
+        "tooltip": "Fixed Rank: use the specified integer rank for each matrix, capped by its dimensions. Auto Rank: choose a rank per matrix for Target Energy, limited by Maximum Rank. Full Delta: store the complete difference without SVD compression; large ComfyUI extension file, not a standard LoRA."
       },
       "rank": {
-        "name": "Rank"
+        "name": "Rank",
+        "tooltip": "Used only in Fixed Rank mode; default 32. Rank Preset offers 16, 32, 64, 128 and 256. Any integer from 1 to 4096 is valid, including 17 or 24; it is not restricted to multiples of 8 or powers of two. Common examples: 8, 16, 32, 64, 128, 256. Lower ranks usually save space but lose more difference information. No rank guarantees faithful recovery. Each layer is also limited by its matrix dimensions."
       },
       "energy": {
-        "name": "Target Energy"
+        "name": "Target Energy",
+        "tooltip": "Used only in Auto Rank mode. 0.99 means retaining 99% of squared weight-difference energy before storage conversion, roughly 10% relative Frobenius error; it is not 99% image similarity. Maximum Rank can prevent reaching the target. BF16/FP16 rounding can leave individual saved layers slightly below it."
       },
       "dtype": {
-        "name": "Storage Type"
+        "name": "Storage Type",
+        "tooltip": "Precision of saved factors/differences; subtraction and factor calculations use FP32. BF16 has a wider value range than FP16. FP32 uses more disk space. Non-finite values or storage overflow stop the save; precision is never changed automatically."
       },
       "filename_prefix": {
-        "name": "Filename Prefix"
+        "name": "Filename Prefix",
+        "tooltip": "Output name under ComfyUI's configured output directory. Subfolders are allowed; a unique numbered suffix is added without overwriting existing files. The result is not automatically installed in the LoRA folder. Put it in a configured LoRA folder to select it in a loader."
       },
       "scan": {
-        "name": "Inspection Depth"
+        "name": "Inspection Depth",
+        "tooltip": "Header checks supported model keys and shapes without comparing weight values. Full Scan reads all weights, checks finite values, and counts changed/nonmatrix parameters; it takes longer. Inspection does not extract or save a LoRA."
       },
       "max_rank": {
-        "name": "Maximum Rank"
+        "name": "Maximum Rank",
+        "tooltip": "Per-matrix rank ceiling for Auto Rank, not a target rank for every layer. If too small, the energy target is missed and reported. Larger ranks increase time and output size; a high-retention LoRA can exceed the full model in size. Only Auto Rank uses this setting."
       },
       "device": {
-        "name": "Compute Device"
+        "name": "Compute Device",
+        "tooltip": "SVD computation device. cpu avoids CUDA allocation. cuda requests GPU computation. auto chooses CUDA only when its memory estimate fits; otherwise CPU. CUDA out-of-memory retries on CPU with the same settings. Model files are read on CPU."
       },
       "svd": {
-        "name": "SVD Method"
+        "name": "SVD Method",
+        "tooltip": "auto uses exact SVD for small matrices and randomized approximation for larger ones. exact is slower but uses the full spectrum for rank selection. randomized uses a seeded approximation and may retain less energy at the same rank. Fixed/Auto Rank only; Full Delta does not use SVD."
       },
       "non_lora": {
-        "name": "Non-LoRA Changes"
+        "name": "Non-LoRA Changes",
+        "tooltip": "What to do with changed normalization/bias or other nonmatrix parameters: Stop rejects them. Store Diff preserves them as .diff in a ComfyUI hybrid file, which current Blend One Sources cannot blend. Exclude With Report drops them and marks the output PARTIAL; the complete model change is not reproduced. Full Delta stores all selected changes."
       },
       "key_filter": {
-        "name": "Target Key Pattern"
+        "name": "Target Key Pattern",
+        "tooltip": "Wildcard filter on normalized parameter keys, e.g. diffusion_model.layers.*.proj.*.weight. * selects all targets. Excluded changed parameters are reported and count as reconstruction error; filtering can produce a partial model difference."
       },
       "seed": {
-        "name": "Seed"
+        "name": "Seed",
+        "tooltip": "Reproducibility seed for randomized SVD, not image generation. Keep this value and Seed Behavior fixed to repeat an approximation. Exact SVD and Full Delta do not use it for decomposition."
       },
       "hash_inputs": {
-        "name": "Hash Inputs"
+        "name": "Hash Inputs",
+        "tooltip": "Calculate SHA256 of both complete input files and record it for identification and reproducibility. It adds disk reads and startup time, and does not change the extracted weights."
       },
       "write_report": {
-        "name": "Write Report"
+        "name": "Write Report",
+        "tooltip": "Write a sidecar .safetensors.report.json with settings, selected ranks, warnings, exclusions, and measured reconstruction errors. A report write failure warns while preserving a successfully saved main file."
+      },
+      "purpose": {
+        "name": "Output Purpose",
+        "tooltip": "ComfyUI Loading preserves nonmatrix changes as Store Diff. Blend One Source requires standard LoRA; partial extraction needs explicit consent."
+      },
+      "allow_partial": {
+        "name": "Allow Partial Extraction",
+        "tooltip": "For Blend One Source only: explicitly allow excluding changed nonmatrix parameters. The output cannot reproduce all model changes."
+      }
+    },
+    "description": "Compare the original Base Model with its Modified Model. Extraction saves Modified minus Base. MOSS-Image only; model files, not LoRAs.",
+    "outputs": {
+      "0": {
+        "name": "info",
+        "tooltip": "Extraction progress, saved path, artifact type, layer count, relative weight error, and warnings. Weight error is not an image-quality score. Inspect shows model-structure/value checks without saving."
+      },
+      "1": {
+        "name": "extraction_plan",
+        "tooltip": "Connect Inspect's extraction_plan output. Connected recommendations override manual extraction settings; disconnect to use your preserved manual settings."
       }
     }
   },
@@ -512,52 +547,83 @@
     "display_name": "LoRA Blend Model Extract",
     "inputs": {
       "base_model": {
-        "name": "Base Model"
+        "name": "Base Model",
+        "tooltip": "Original full model used as the starting point before fine-tuning or merging. Select model weights, not a LoRA. The extracted difference is Modified Model minus Base Model. Both files must have compatible MOSS-Image architecture and shapes; matching shapes alone does not prove this is the correct training base."
       },
       "modified_model": {
-        "name": "Modified Model"
+        "name": "Modified Model",
+        "tooltip": "Full model after fine-tuning or merging, based on the selected Base Model. This is not a LoRA file. Swapping the two models reverses the difference. Identical weights produce no output. Only single, non-quantized native MOSS-Image Safetensors are currently supported."
       },
       "mode": {
-        "name": "Extraction Mode"
+        "name": "Extraction Mode",
+        "tooltip": "Fixed Rank: use the specified integer rank for each matrix, capped by its dimensions. Auto Rank: choose a rank per matrix for Target Energy, limited by Maximum Rank. Full Delta: store the complete difference without SVD compression; large ComfyUI extension file, not a standard LoRA."
       },
       "rank": {
-        "name": "Rank"
+        "name": "Rank",
+        "tooltip": "Used only in Fixed Rank mode; default 32. Rank Preset offers 16, 32, 64, 128 and 256. Any integer from 1 to 4096 is valid, including 17 or 24; it is not restricted to multiples of 8 or powers of two. Common examples: 8, 16, 32, 64, 128, 256. Lower ranks usually save space but lose more difference information. No rank guarantees faithful recovery. Each layer is also limited by its matrix dimensions."
       },
       "energy": {
-        "name": "Target Energy"
+        "name": "Target Energy",
+        "tooltip": "Used only in Auto Rank mode. 0.99 means retaining 99% of squared weight-difference energy before storage conversion, roughly 10% relative Frobenius error; it is not 99% image similarity. Maximum Rank can prevent reaching the target. BF16/FP16 rounding can leave individual saved layers slightly below it."
       },
       "dtype": {
-        "name": "Storage Type"
+        "name": "Storage Type",
+        "tooltip": "Precision of saved factors/differences; subtraction and factor calculations use FP32. BF16 has a wider value range than FP16. FP32 uses more disk space. Non-finite values or storage overflow stop the save; precision is never changed automatically."
       },
       "filename_prefix": {
-        "name": "Filename Prefix"
+        "name": "Filename Prefix",
+        "tooltip": "Output name under ComfyUI's configured output directory. Subfolders are allowed; a unique numbered suffix is added without overwriting existing files. The result is not automatically installed in the LoRA folder. Put it in a configured LoRA folder to select it in a loader."
       },
       "scan": {
-        "name": "Inspection Depth"
+        "name": "Inspection Depth",
+        "tooltip": "Header checks supported model keys and shapes without comparing weight values. Full Scan reads all weights, checks finite values, and counts changed/nonmatrix parameters; it takes longer. Inspection does not extract or save a LoRA."
       },
       "max_rank": {
-        "name": "Maximum Rank"
+        "name": "Maximum Rank",
+        "tooltip": "Per-matrix rank ceiling for Auto Rank, not a target rank for every layer. If too small, the energy target is missed and reported. Larger ranks increase time and output size; a high-retention LoRA can exceed the full model in size. Only Auto Rank uses this setting."
       },
       "device": {
-        "name": "Compute Device"
+        "name": "Compute Device",
+        "tooltip": "SVD computation device. cpu avoids CUDA allocation. cuda requests GPU computation. auto chooses CUDA only when its memory estimate fits; otherwise CPU. CUDA out-of-memory retries on CPU with the same settings. Model files are read on CPU."
       },
       "svd": {
-        "name": "SVD Method"
+        "name": "SVD Method",
+        "tooltip": "auto uses exact SVD for small matrices and randomized approximation for larger ones. exact is slower but uses the full spectrum for rank selection. randomized uses a seeded approximation and may retain less energy at the same rank. Fixed/Auto Rank only; Full Delta does not use SVD."
       },
       "non_lora": {
-        "name": "Non-LoRA Changes"
+        "name": "Non-LoRA Changes",
+        "tooltip": "What to do with changed normalization/bias or other nonmatrix parameters: Stop rejects them. Store Diff preserves them as .diff in a ComfyUI hybrid file, which current Blend One Sources cannot blend. Exclude With Report drops them and marks the output PARTIAL; the complete model change is not reproduced. Full Delta stores all selected changes."
       },
       "key_filter": {
-        "name": "Target Key Pattern"
+        "name": "Target Key Pattern",
+        "tooltip": "Wildcard filter on normalized parameter keys, e.g. diffusion_model.layers.*.proj.*.weight. * selects all targets. Excluded changed parameters are reported and count as reconstruction error; filtering can produce a partial model difference."
       },
       "seed": {
-        "name": "Seed"
+        "name": "Seed",
+        "tooltip": "Reproducibility seed for randomized SVD, not image generation. Keep this value and Seed Behavior fixed to repeat an approximation. Exact SVD and Full Delta do not use it for decomposition."
       },
       "hash_inputs": {
-        "name": "Hash Inputs"
+        "name": "Hash Inputs",
+        "tooltip": "Calculate SHA256 of both complete input files and record it for identification and reproducibility. It adds disk reads and startup time, and does not change the extracted weights."
       },
       "write_report": {
-        "name": "Write Report"
+        "name": "Write Report",
+        "tooltip": "Write a sidecar .safetensors.report.json with settings, selected ranks, warnings, exclusions, and measured reconstruction errors. A report write failure warns while preserving a successfully saved main file."
+      },
+      "extraction_plan": {
+        "name": "Extraction Plan",
+        "tooltip": "Connect Inspect for advice. Settings remain editable and are used as displayed. Apply Recommendations copies a completed analysis once; connecting or re-running Inspect never overwrites your settings."
+      },
+      "plan_action": {
+        "name": "Plan Action",
+        "tooltip": "Connected plans start in Review Only: display your current settings and recommendations without saving. Extract and Save uses the editable settings on this node. Recommendations are copied only by the Apply Recommendations button. Unconnected manual extraction works as before."
+      }
+    },
+    "description": "Compare the original Base Model with its Modified Model. Extraction saves Modified minus Base. MOSS-Image only; model files, not LoRAs.",
+    "outputs": {
+      "0": {
+        "name": "info",
+        "tooltip": "Extraction progress, saved path, artifact type, layer count, relative weight error, and warnings. Weight error is not an image-quality score. Inspect shows model-structure/value checks without saving."
       }
     }
   }
