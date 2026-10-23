@@ -1,11 +1,11 @@
 # Validation — LoRA Blend One
 
-## Current local checks — 2026-10-22
+## Current local checks — 2026-10-23
 
 | Check | Result |
 | --- | --- |
-| Python suite: standard core, Krea2, MOSS, node integration, and failure diagnostics | 42 tests passed |
-| JavaScript UI suite: locale, store serialization/reload, legacy recovery, template, inline source toggles, failure panels, and Power LoRA Loader import | 19 tests passed |
+| Python suite: standard core, Krea2, MOSS, node integration, failure diagnostics, recipe restoration/API, and model extraction | 75 tests passed |
+| JavaScript UI suite: locale, store serialization/reload, legacy recovery, template, source toggles, failure panels, recipe controls, Power LoRA Loader import, and extractor UI | 35 tests passed |
 | Node integration after adding the model-status UI payload | Passed; split/legacy MOSS labels and generic label checked |
 | Model-status drawing with Advanced loaded in either extension order | JavaScript VM passed |
 | Original widget values/order through accordion serialization | JavaScript VM passed |
@@ -14,8 +14,30 @@
 | Live Chrome: template, Advanced, English/Japanese switching, save/close/reopen | Passed; 45 saved widget settings and 44 exported API settings matched |
 | Real two-input MOSS blend, file reload, and GPU image generation | Passed; details below |
 | Live Chrome: two-row source layout and OFF → ON blending | Passed; four-source then five-source saves and recipes checked |
+| Live Chrome: imported recipe inspection, restoring changed values, reblend, save, and file reload | Passed; all 738 saved tensors equal to the original blend |
+| Live Chrome: import eight ON rows from Power LoRA Loader and export/reopen the workflow | Passed; all names, strengths, ON states, and selected loader retained |
 
 The eight MOSS cases check fused/split QKV equivalence across Weighted/TIES/DARE/DELLA, alpha scaling, exact zero-column removal, combined in-file contributions, ambiguous aliases, unsupported tensors, model-family isolation, text-embedder QKV, and save/rank/metadata round trips.
+
+## Model-difference extraction — 2026-10-23
+
+The complete local suite after adding the MOSS-only extraction path passed **75 Python tests** (65 existing plus 10 extraction tests) and **35 JavaScript tests** (34 existing plus one extraction UI VM case). The extraction cases cover MOSS layout matching, exact/automatic rank, Full Delta, nonmatrix policies, explicit partial output, BF16 save/reload, finite/quantized-input rejection, cancellation cleanup, no-overwrite saves, and report-failure handling. These are offline tests, not a live browser/UI check.
+
+Real-file CPU extraction used the same `moss_image_sft_bf16.safetensors` and `Moss_Luc-sft-bf16.safetensors` inputs across all three runs, confirmed by SHA256. Each used BF16, seed 0, all targets, and Store Diff. All 462 logical parameter keys matched after QKV normalization; `rope.bands` was excluded as a known reconstructed buffer. 344 targets changed; 118 unchanged targets were omitted.
+
+| Mode / cap / decomposition | Relative Frobenius error | Overall retained energy after BF16 | Saved bytes |
+| --- | ---: | ---: | ---: |
+| Fixed 16 / automatic | 0.950658008228 | 9.624935139% | 80,053,060 |
+| Auto 99% / 256 / automatic | 0.838158000879 | 29.749116556% | 1,268,436,340 |
+| Auto 99% / 3072 / exact | 0.0992230429695 | 99.015478774% | 11,108,963,604 |
+
+At cap 256, 266 of 269 matrices missed the target. An independent exact singular-value check on `text_embedder.proj.weight` (3072 × 4096) found optimal rank-256 retention of 30.6558%, compared with 27.9980% from randomized SVD; exact 99% required rank 2562 for that example layer. The cap therefore materially constrained that layer even with exact decomposition.
+
+The cap-3072 run used exact SVD throughout. The 269 selected matrix ranks ranged from 125 to 2898, median 1823, with no cap hits. All matrices met 99% before conversion. After BF16 rounding, **49 individual matrices were just below 99%**, minimum **98.999447865%** (maximum individual relative error 10.002760292%). The saved file meets the **global** 99% target, not a strict per-layer post-storage guarantee. The minimum rank claim applies to the pre-storage exact-SVD criterion only. High-rank output was 11.1090 decimal GB / 10.3460 GiB, larger than the approximately 10.16 GB input model. Total wall time including save verification was 2132.375 seconds on CPU with four threads; this is one measured run.
+
+Each complete output is **hybrid_delta**, preserving 75 nonmatrix targets with native `.diff`. Official Safetensors-reader header/shape/dtype/finite checks and payload-copy verification passed. The installed native ComfyUI MOSS loader loaded all **344 patches with zero unused keys** for each file; Q-slice, O-projection, and norm1 direct-difference weight application passed against actual base-model weights. Current Blend One Sources intentionally rejects mixed `.diff` files. A separate explicit one-layer partial extraction of `layers.0.proj.o.weight` saved a standard LoRA and passed existing Blend scan/merge/save/reload; 343 changed targets were reported excluded, so that check does not establish a complete equivalent model.
+
+Retained energy is `1 - relative_error²` in weight-difference space, not image quality. Product code and installed runtime were unchanged during the cap-256/cap-3072 measurements. No live extraction-node UI, GPU generation, CUDA OOM recovery, or visual-quality comparison was exercised. Other model families remain disabled for extraction. Private model weights and generated multi-GB output files are not bundled in this repository.
 
 ## Real MOSS adapter validation
 
@@ -81,9 +103,27 @@ JavaScript VM checks verify the red, wrapped English/Japanese source/reason/fix 
 
 The first attempt still had an older frontend module loaded and showed only the generic failure toast. Reloading the existing Chrome page and rerunning the same copy displayed the new panel. The original four nodes, widget values, and connections were equal before/after; the saved original workflow SHA256 was unchanged. The test copy was closed and the original tab restored. English live rendering was not repeated; English/Japanese rendering is covered by the VM checks.
 
+## Saved-recipe restoration
+
+The recipe reader checks registered file names and source SHA256 values without reading tensor data. Python cases cover old recipes, custom ranks, direct coefficients including negative weights, same-basename matching, missing/ambiguous/mismatching files, name-only warnings, unsupported settings, Krea2 controls, and local HTTP routes. JavaScript VM cases cover English/Japanese summaries, Advanced visibility, schema-order serialization, restoring the connected Sources, unused-slot clearing, fixed seeds, unchanged output names, rechecking files before applying, linked inputs, and stale requests.
+
+Offline CPU verification used `MOSS_LUC12_LUC20_rank16__.safetensors`. Both recorded LUC Epoch 12/20 sources matched their SHA256 values. Restoring coefficients 0.5/0.5, rank 16, BF16, and the recorded settings through the real split node produced a saved file that reopened successfully. All 738 tensors had identical shapes, dtypes, and values to the supplied blend (maximum absolute difference 0). New recipes also recorded the registered source names. This result is specific to these files/settings and environment.
+
+Drag/drop VM checks verify bounded header reads, metadata-only requests, connected nodes in a new tab, coefficients/settings/fixed seed, repeated-drop unique IDs, original graph preservation, all-OFF handling for unresolved sources, ordinary-file delegation, unavailable API, missing node cleanup, and malformed header/recipe handling. Imported recipes survive serialization and can be rechecked from outside the model folders. The metadata endpoint checks the same registered-source allowlist and SHA256 matching as installed-file inspection.
+
+The installed frontend's `app.handleFile` and `app.loadGraphData` paths were inspected locally: normal canvas file drops invoke `handleFile`; `loadGraphData` preserves the outgoing workflow draft and creates a new temporary workflow for the fresh name. Tests simulate that tab API; they do not constitute a live browser drop test.
+
+### Live recipe controls and reproduction — 2026-10-22
+
+The existing Chrome tab already contained a recipe-imported workflow for `MOSS_LUC12_LUC20_rank16_verify_20261022.safetensors`. Its Advanced panel displayed both original LoRA names, coefficients 0.5/0.5, matching source hashes, Weighted, rank 16, BF16, and fixed seed 0. A duplicate workflow was used to change Source 1 from 50 to 20, turn Source 2 OFF, and change rank 16 to 32. Clicking **Restore Sources + Blend One** restored 50/50, both sources ON, and rank 16, while retaining the test output prefix.
+
+Running that copy in ComfyUI saved a 72,634,136-byte blend successfully: MOSS-Image, Weighted, two sources, 246 layers, ranks 16–16, and no warnings. Independent file reload found all 738 tensors identical in shape, dtype, and value to the supplied blend, with maximum absolute difference 0. The new recipe included both registered source names. The file size differs because its metadata changed.
+
+The original workflow's complete exported JSON was identical before and after validation, including nodes, values, properties, and links. The original tab was restored; the validation copy was retained after an additional LoRA Loader appeared in it. ComfyUI was not restarted. This live check covers the imported recipe controls and CPU reblend/save/reload. A fresh physical file drag/drop was not replayed, and image generation was not repeated for this recipe check.
+
 ## Power LoRA Loader import — 2026-10-22
 
-Eight JavaScript VM cases cover Advanced-only English/Japanese controls, settings-only import without changing the original loader, displayed row order, direct percentages, unused-slot clearing, zero/negative strengths, eight ON rows among ten total rows, missing/ambiguous filenames, invalid strengths, separate Model/CLIP limits, connected-input overrides, multiple Blend One consumers, stale/other-workflow selection, and serialization/reload without shifting saved values. Existing locale/toggle/error UI cases also pass. The Python blending implementation and rgthree files are unchanged.
+Eight JavaScript VM cases cover Advanced-only English/Japanese controls, settings-only import without changing the original loader, displayed row order, direct percentages, unused-slot clearing, zero/negative strengths, eight ON rows among ten total rows, missing/ambiguous filenames, invalid strengths, separate Model/CLIP limits, connected-input overrides, multiple Blend One consumers, stale/other-workflow selection, and serialization/reload without shifting saved values. Existing recipe/drop/toggle/error UI cases also pass. The Python blending implementation and rgthree files are unchanged.
 
 Live verification used the existing Chrome tab and a duplicate of the user's loader workflow. The new controls appeared inside Sources Advanced after a browser reload. A ten-row Power LoRA Loader had eight ON rows and two OFF rows. Clicking **Import Enabled LoRAs** copied the eight enabled filenames in displayed order at **80 / 20 / 20 / 5 / 10 / 20 / 40 / 25 percent**, excluded the two OFF rows, and changed the connected Blend One from normalize to direct. No model inputs were connected or loaded.
 
@@ -95,7 +135,7 @@ Run with the Python environment used by your ComfyUI installation:
 
 ```sh
 python -m unittest discover -s tests -p "test_*.py" -v
-node --test tests/test_ui.mjs tests/test_source_toggles.mjs tests/test_error_ui.mjs tests/test_power_loader.mjs
+node --test tests/test_ui.mjs tests/test_source_toggles.mjs tests/test_error_ui.mjs tests/test_recipe_ui.mjs tests/test_recipe_drop.mjs tests/test_power_loader.mjs tests/test_extractor_ui.mjs
 python tools/validate_moss_local.py --help
 ```
 

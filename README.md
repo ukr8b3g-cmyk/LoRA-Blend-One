@@ -115,6 +115,47 @@ Click **Run** to blend and save. Importing settings alone does not create a file
 
 **Verified locally (2026-10-22):** the existing Chrome tab imported eight ON rows from a ten-row, fully disconnected Power LoRA Loader at `80 / 20 / 20 / 5 / 10 / 20 / 40 / 25%`. All filenames, strengths, and ON states matched the exported workflow and survived reopening. Both original workflow JSON exports were unchanged. English was checked live; Japanese labels/errors were checked in VM tests. This check did not queue blending or image generation.
 
+## Inspect and restore a saved blend
+
+Open **Advanced** on **LoRA Blend One**, select **Saved Blend LoRA**, and use **Read / Refresh Recipe**. The saved file must be in a configured LoRA folder. The node shows the source names, effective coefficients, SHA256 match status, method, rank, storage type, and global strength.
+
+**Restore Sources + Blend One** restores the connected **LoRA Blend Sources** and the merge settings. It uses `direct` percentages (`coefficient × 100`), enables the recorded sources, clears/disables unused slots, and fixes the recorded seed. Filename Prefix is kept. The original input percentages and normalize/direct choice are not recorded by older recipes; their effective coefficients are restored instead.
+
+Original source files are required. Missing files, hash mismatches, ambiguous names, or settings outside the node's supported ranges block restoration before either node changes. Recipes without hashes show an explicit name-only warning. Files without a supported LoRA Blend One recipe cannot be restored. This works with the same recipe format across model families; it does not extract source LoRAs from compressed weights. Restart ComfyUI and reload the browser after installing the update.
+
+### Drag and drop
+
+Drop a `.safetensors` blend made by LoRA Blend One onto the ComfyUI canvas. Its recipe opens in a **new workflow tab** with connected Sources and Blend One nodes, original source names/coefficients, merge settings, and a fixed seed. Existing tabs remain open. Each drop gets a fresh workflow name/ID, including repeated drops of the same file. No blend is queued automatically.
+
+The dropped blend can be outside the model folders: only its header is read in the browser, and only the recipe is sent to the local ComfyUI API. Source LoRAs still need to be installed. Missing, ambiguous, or hash-mismatched sources produce an inspection tab with **all slots OFF**; resolve the files and use **Read / Refresh Recipe → Restore Sources + Blend One**. The imported recipe is retained when saving the workflow. Ordinary images, workflows, and LoRAs without a Blend One recipe keep their existing file-handler behavior.
+
+## Extract a model difference (MOSS-Image)
+
+Two additional nodes are available under **model/merging/LoRA Blend One**:
+
+- **LoRA Blend Model Inspect:** compare a base model and its modified model. Header inspection checks supported keys/shapes; **Full Scan** also reads values and checks changed parameters.
+- **LoRA Blend Model Extract:** save `modified - base` using **Fixed Rank**, **Auto Rank**, or **Full Delta**. Select the two registered model files, mode, storage precision, and output prefix. Rank limits, SVD method, device, and non-LoRA policy are in **Advanced**.
+
+Extraction currently supports **single, non-quantized native MOSS-Image Safetensors files only**. Other model families, sharded files, and quantized inputs are not enabled. This is a separate path from LoRA blending; the generic blend compatibility list below does not apply to model extraction.
+
+The default non-LoRA policy **Stop** rejects changed parameters that cannot be represented by the supported A/B factors. **Store Diff** preserves them as ComfyUI `.diff` tensors, producing a **hybrid_delta**; **Exclude With Report** produces an explicitly partial result. Hybrid/Full Delta files require ComfyUI's extended loader and **cannot be used as current Blend One Sources**. This feature does not recover the original training LoRA or guarantee a small output. Files are written inside `ComfyUI/output`; use the saved file in your configured LoRA folder to load it normally.
+
+### Real MOSS extraction results — 2026-10-23
+
+The same local pair, `moss_image_sft_bf16.safetensors` → `Moss_Luc-sft-bf16.safetensors`, was tested on CPU with BF16 storage, seed 0, all parameters, and **Store Diff**. Input SHA256 values matched across runs.
+
+| Extraction | Relative weight error | Measured retained energy | Output size (decimal) |
+| --- | ---: | ---: | ---: |
+| Fixed Rank 16; automatic SVD | 95.0658% | 9.6249% | 80,053,060 bytes / 80.05 MB |
+| Auto Rank, 99% target, cap 256; automatic SVD | 83.8158% | 29.7491% | 1,268,436,340 bytes / 1.2684 GB |
+| Auto Rank, 99% target, cap 3072; **exact SVD** | **9.9223%** | **99.0155%** | **11,108,963,604 bytes / 11.1090 GB (10.3460 GiB)** |
+
+For the exact run, the **269 matrix targets used ranks 125–2898, median 1823**, with no target reaching cap 3072. All reached 99% before storage conversion. **After BF16 rounding, 49 matrix targets were slightly below 99%, with a minimum of 98.99945%.** Thus, the saved file meets 99% **overall**, but does not guarantee at least 99% in every individual layer. The maximum selected rank is specific to exact SVD and this pair; it is not a general rank recommendation. The cap-256 run used approximate SVD on large matrices, so this comparison changes both the cap and decomposition method.
+
+Retained energy is `1 - relative_Frobenius_error²`; it describes reconstruction of the **model weight difference**, not image similarity or quality. A 99% energy target corresponds to roughly 10% relative norm error. The output exceeds the approximately 10.16 GB source model, so high retention did **not** provide a size reduction for this pair. The exact CPU run took about 35.5 minutes including save verification; this is one observed run, not a performance estimate.
+
+All three outputs were saved and reopened. The installed native ComfyUI MOSS loader recognized **344 changed targets** (269 matrices and 75 direct differences), with **zero unused keys**; actual Q-slice, O-projection, and norm1 weight application passed. A separate, explicitly partial one-layer standard-LoRA extraction also passed Blend One blend/save/reload; this does not make the complete hybrid output a supported blend source. No live extraction-node browser check, GPU generation, or image-quality comparison was performed. See [VALIDATION.md](VALIDATION.md) and the [implementation design and scope](docs/MODEL_DELTA_EXTRACT_DESIGN.ja.md).
+
 ## Interface language
 
 English is the default interface. In ComfyUI **Settings**, search for **Language** (`Comfy.Locale`) and select **Japanese** to use Japanese field labels, tooltips, Advanced controls, and model detection messages. Select English to switch back. Method identifiers such as Auto and Krea2 Gate-Aware keep their original names.
@@ -133,7 +174,7 @@ The generic path requires matching target names and shapes. Architecture hints a
 
 Supported factor forms include `.lora_A/B.weight`, `.lora_down/up.weight`, `.lora.down/up.weight`, named PEFT `.lora_A/B.default.weight`, Diffusers `_lora.down/up.weight`, Transformers `.lora_linear_layer.down/up.weight`, and Mochi-style `.lora_A/B`. Linear factors and standard convolutional factors with a 1×1 up kernel are supported.
 
-DoRA, LoHa, LoKr, LoCon-mid, full-diff/set-weight, and other non-Standard-LoRA adapters are outside the supported scope. MOSS inputs additionally reject unconsumed tensors, incomplete pairs, and ambiguous aliases.
+DoRA, LoHa, LoKr, LoCon-mid, full-diff/set-weight, and other non-Standard-LoRA adapters are outside the supported **blend-input** scope. MOSS inputs additionally reject unconsumed tensors, incomplete pairs, and ambiguous aliases.
 
 ## Strengths: normalize or direct
 
@@ -231,7 +272,7 @@ A numeric Output Rank caps every Krea2 output layer; dedicated gate/normal compr
 
 All three issues were reproduced before fixing them. The isolated publication snapshot passed **56 Python tests** (including **14 new safety regression tests**, MOSS **8**, and Krea2 **6**) and **19 JavaScript tests**. Checks include finite FP16/BF16/FP32 save/reload, rejected non-finite input/storage overflow, unsupported keys, and injected report I/O failure with successful node output. CPU tests use temporary files and stubbed ComfyUI services; JavaScript uses test Graph/DOM. This update was not rechecked in a live browser, real-LoRA GPU generation, CUDA OOM recovery, or image-quality comparisons. Earlier live results below are separate checks. Restart ComfyUI to load the updated Python modules.
 
-The local suite passed **56 Python tests** and **19 JavaScript UI tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, node integration, locale switching, inline source switches, and workflow serialization/recovery. Structured failure tests also cover source attribution, duplicate filenames in different folders, memory errors, save errors, and cancellation. Error-panel rendering in English/Japanese and event routing were checked in the JavaScript VM. In the existing Chrome tab, a duplicate workflow was run with five MOSS-Image LoRAs and an enabled SDXL LoRA in slot 7. After restarting ComfyUI and reloading the browser, the actual compatibility error displayed the exact slot/filename, Japanese stop reason, and suggested fix on the node. The original workflow settings and connections were preserved. Reload the browser after updating so that the new error UI is loaded.
+The local suite passed **65 Python tests** and **34 JavaScript UI tests**, including MOSS format equivalence, existing standard/Krea2 behavior, rank reduction, node integration, locale switching, inline source switches, and workflow serialization/recovery. Structured failure tests also cover source attribution, duplicate filenames in different folders, memory errors, save errors, and cancellation. Error-panel rendering in English/Japanese and event routing were checked in the JavaScript VM. In the existing Chrome tab, a duplicate workflow was run with five MOSS-Image LoRAs and an enabled SDXL LoRA in slot 7. After restarting ComfyUI and reloading the browser, the actual compatibility error displayed the exact slot/filename, Japanese stop reason, and suggested fix on the node. The original workflow settings and connections were preserved. Reload the browser after updating so that the new error UI is loaded.
 
 Three real MOSS LoRAs with ranks **128 / 32 / 32** were blended on CPU at direct coefficients **0.8 / 0.4 / 0.2**. Both saved outputs reopened successfully; the installed ComfyUI parser loaded all **252 layers**, and its real weight adapter applied Q/O patches.
 

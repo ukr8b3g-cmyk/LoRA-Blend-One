@@ -454,5 +454,111 @@
         "tooltip": "Saved path, resolved method, layer/rank summary, gate conflict count, and warning count."
       }
     }
+  },
+  "LoRABlendModelInspect": {
+    "display_name": "LoRA Blend Model Inspect",
+    "inputs": {
+      "base_model": {
+        "name": "Base Model"
+      },
+      "modified_model": {
+        "name": "Modified Model"
+      },
+      "mode": {
+        "name": "Extraction Mode"
+      },
+      "rank": {
+        "name": "Rank"
+      },
+      "energy": {
+        "name": "Target Energy"
+      },
+      "dtype": {
+        "name": "Storage Type"
+      },
+      "filename_prefix": {
+        "name": "Filename Prefix"
+      },
+      "scan": {
+        "name": "Inspection Depth"
+      },
+      "max_rank": {
+        "name": "Maximum Rank"
+      },
+      "device": {
+        "name": "Compute Device"
+      },
+      "svd": {
+        "name": "SVD Method"
+      },
+      "non_lora": {
+        "name": "Non-LoRA Changes"
+      },
+      "key_filter": {
+        "name": "Target Key Pattern"
+      },
+      "seed": {
+        "name": "Seed"
+      },
+      "hash_inputs": {
+        "name": "Hash Inputs"
+      },
+      "write_report": {
+        "name": "Write Report"
+      }
+    }
+  },
+  "LoRABlendModelExtract": {
+    "display_name": "LoRA Blend Model Extract",
+    "inputs": {
+      "base_model": {
+        "name": "Base Model"
+      },
+      "modified_model": {
+        "name": "Modified Model"
+      },
+      "mode": {
+        "name": "Extraction Mode"
+      },
+      "rank": {
+        "name": "Rank"
+      },
+      "energy": {
+        "name": "Target Energy"
+      },
+      "dtype": {
+        "name": "Storage Type"
+      },
+      "filename_prefix": {
+        "name": "Filename Prefix"
+      },
+      "scan": {
+        "name": "Inspection Depth"
+      },
+      "max_rank": {
+        "name": "Maximum Rank"
+      },
+      "device": {
+        "name": "Compute Device"
+      },
+      "svd": {
+        "name": "SVD Method"
+      },
+      "non_lora": {
+        "name": "Non-LoRA Changes"
+      },
+      "key_filter": {
+        "name": "Target Key Pattern"
+      },
+      "seed": {
+        "name": "Seed"
+      },
+      "hash_inputs": {
+        "name": "Hash Inputs"
+      },
+      "write_report": {
+        "name": "Write Report"
+      }
+    }
   }
 }

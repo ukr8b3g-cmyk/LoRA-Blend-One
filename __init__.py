@@ -1,4 +1,11 @@
 from .nodes import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
+from .extract_nodes import EXTRACT_NODES, EXTRACT_NAMES
+from .recipe_loader import register_routes
+
+NODE_CLASS_MAPPINGS = {**NODE_CLASS_MAPPINGS, **EXTRACT_NODES}
+NODE_DISPLAY_NAME_MAPPINGS = {**NODE_DISPLAY_NAME_MAPPINGS, **EXTRACT_NAMES}
+
+register_routes()
 
 WEB_DIRECTORY = "./web"
 

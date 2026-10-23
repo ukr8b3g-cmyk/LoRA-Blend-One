@@ -454,5 +454,111 @@
         "tooltip": "保存先、実際のマージ方式、レイヤー数、ランク範囲、Gate競合数、警告数を返します。"
       }
     }
+  },
+  "LoRABlendModelInspect": {
+    "display_name": "LoRA Blend モデル差分確認",
+    "inputs": {
+      "base_model": {
+        "name": "元モデル"
+      },
+      "modified_model": {
+        "name": "加工済みモデル"
+      },
+      "mode": {
+        "name": "抽出方式"
+      },
+      "rank": {
+        "name": "ランク"
+      },
+      "energy": {
+        "name": "保持率目標"
+      },
+      "dtype": {
+        "name": "保存精度"
+      },
+      "filename_prefix": {
+        "name": "保存名"
+      },
+      "scan": {
+        "name": "検査の深さ"
+      },
+      "max_rank": {
+        "name": "最大ランク"
+      },
+      "device": {
+        "name": "処理デバイス"
+      },
+      "svd": {
+        "name": "SVD方式"
+      },
+      "non_lora": {
+        "name": "通常LoRAに収まらない変更"
+      },
+      "key_filter": {
+        "name": "対象キーのパターン"
+      },
+      "seed": {
+        "name": "シード"
+      },
+      "hash_inputs": {
+        "name": "入力ハッシュを計算"
+      },
+      "write_report": {
+        "name": "レポートを保存"
+      }
+    }
+  },
+  "LoRABlendModelExtract": {
+    "display_name": "LoRA Blend モデル差分抽出",
+    "inputs": {
+      "base_model": {
+        "name": "元モデル"
+      },
+      "modified_model": {
+        "name": "加工済みモデル"
+      },
+      "mode": {
+        "name": "抽出方式"
+      },
+      "rank": {
+        "name": "ランク"
+      },
+      "energy": {
+        "name": "保持率目標"
+      },
+      "dtype": {
+        "name": "保存精度"
+      },
+      "filename_prefix": {
+        "name": "保存名"
+      },
+      "scan": {
+        "name": "検査の深さ"
+      },
+      "max_rank": {
+        "name": "最大ランク"
+      },
+      "device": {
+        "name": "処理デバイス"
+      },
+      "svd": {
+        "name": "SVD方式"
+      },
+      "non_lora": {
+        "name": "通常LoRAに収まらない変更"
+      },
+      "key_filter": {
+        "name": "対象キーのパターン"
+      },
+      "seed": {
+        "name": "シード"
+      },
+      "hash_inputs": {
+        "name": "入力ハッシュを計算"
+      },
+      "write_report": {
+        "name": "レポートを保存"
+      }
+    }
   }
 }

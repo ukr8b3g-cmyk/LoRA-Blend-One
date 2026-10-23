@@ -275,6 +275,9 @@ class LoRABlendOne:
                 raise MergeError(error.code, source_names, error.detail) from error
             raise
         recipe = build_recipe(infos, weights, settings, merge_report)
+        for source, name in zip(recipe["sources"], names):
+            source["registered_name"] = name
+        recipe["settings"]["compatibility_mode"] = kwargs.get("compatibility_mode", "safe")
         metadata = build_metadata(recipe)
         report_dict = report_to_dict(merge_report)
         report_dict["recipe"] = recipe

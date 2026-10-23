@@ -27,10 +27,10 @@ test('custom UI follows ComfyUI locale without changing saved settings', () => {
         registerExtension: extension => extensions.push(extension) };
     const api = { addEventListener() {}, removeEventListener() {} };
     const context = vm.createContext({ app, api, queueMicrotask });
-    for (const file of ['i18n.js', 'source_toggles.js', 'power_loader.js', 'accordion.js', 'model_status.js']) {
+    for (const file of ['i18n.js', 'source_toggles.js', 'recipe.js', 'power_loader.js', 'accordion.js', 'model_status.js']) {
         const source = uiSource(file)
             .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
-        vm.runInContext(`{ ${source}\n${file === 'i18n.js' ? 'globalThis.text = text; globalThis.watchLocale = watchLocale;' : file === 'source_toggles.js' ? 'globalThis.installSourceToggles = installSourceToggles;' : file === 'power_loader.js' ? 'globalThis.installPowerLoaderControls = installPowerLoaderControls;' : ''} }`, context);
+        vm.runInContext(`{ ${source}\n${file === 'i18n.js' ? 'globalThis.text = text; globalThis.watchLocale = watchLocale;' : file === 'source_toggles.js' ? 'globalThis.installSourceToggles = installSourceToggles;' : file === 'recipe.js' ? 'globalThis.installRecipeControls = installRecipeControls;' : file === 'power_loader.js' ? 'globalThis.installPowerLoaderControls = installPowerLoaderControls;' : ''} }`, context);
     }
     class Node {
         constructor() {
@@ -84,9 +84,9 @@ test('store export, reload and legacy recovery preserve each setting by name', (
     const extensions = [];
     const app = { graph: { setDirtyCanvas() {} }, registerExtension: e => extensions.push(e) };
     const context = vm.createContext({ app, queueMicrotask });
-    for (const file of ['i18n.js', 'source_toggles.js', 'power_loader.js', 'accordion.js']) {
+    for (const file of ['i18n.js', 'source_toggles.js', 'recipe.js', 'power_loader.js', 'accordion.js']) {
         const source = uiSource(file).replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
-        vm.runInContext(`{ ${source}\n${file === 'i18n.js' ? 'globalThis.text = text; globalThis.watchLocale = watchLocale;' : file === 'source_toggles.js' ? 'globalThis.installSourceToggles = installSourceToggles;' : file === 'power_loader.js' ? 'globalThis.installPowerLoaderControls = installPowerLoaderControls;' : ''} }`, context);
+        vm.runInContext(`{ ${source}\n${file === 'i18n.js' ? 'globalThis.text = text; globalThis.watchLocale = watchLocale;' : file === 'source_toggles.js' ? 'globalThis.installSourceToggles = installSourceToggles;' : file === 'recipe.js' ? 'globalThis.installRecipeControls = installRecipeControls;' : file === 'power_loader.js' ? 'globalThis.installPowerLoaderControls = installPowerLoaderControls;' : ''} }`, context);
     }
     const required = { output_rank: [['Auto', '16'], { default: '16' }],
         filename_prefix: ['STRING', { default: 'blend' }] };

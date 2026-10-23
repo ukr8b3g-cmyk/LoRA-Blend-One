@@ -1,6 +1,7 @@
 import { app } from '../../scripts/app.js';
 import { text, watchLocale } from './i18n.js';
 import { installSourceToggles } from './source_toggles.js';
+import { installRecipeControls } from './recipe.js';
 import { installPowerLoaderControls } from './power_loader.js';
 
 const NODE_NAMES = new Set(['LoRABlendSources', 'LoRABlendOneSplit']);
@@ -50,6 +51,7 @@ function restoreWidgetOrder(info, original, display, nodeData) {
 
 function installAccordion(node, nodeData) {
     if (node.loraBlendAccordion || !node.addWidget) return;
+    if (nodeData.name === 'LoRABlendOneSplit') installRecipeControls(node);
     if (nodeData.name === 'LoRABlendSources') installPowerLoaderControls(node);
     const advancedNames = new Set(Object.entries(nodeData.input?.optional || {})
         .filter(([, spec]) => spec[1]?.advanced === true)
@@ -81,6 +83,7 @@ function installAccordion(node, nodeData) {
 
     function refresh() {
         const open = node.properties?.[STATE_KEY] === true;
+        void node.loraBlendRecipe?.refresh(open);
         node.loraBlendPowerLoader?.refresh();
         const krea2 = original.find(widget => widget.name === 'merge_method')?.value === 'Krea2 Gate-Aware';
         header.name = `${open ? '▼' : '▶'} ${text(app, 'Advanced', '詳細設定')}`;
