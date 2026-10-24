@@ -2,6 +2,10 @@
 
 # LoRA Blend One — 日本語ガイド
 
+**v0.90 — Still Experimental Node**
+
+本ノードは実験段階です。機能とモデル互換性の検証を進めています。
+
 ![LoRA Blend One — ComfyUIで互換LoRAをブレンド](docs/images/lora-blend-one-banner.png)
 
 複数の互換LoRAをブレンドし、ComfyUIで再利用できる1つの `.safetensors` に保存するカスタムノードです。

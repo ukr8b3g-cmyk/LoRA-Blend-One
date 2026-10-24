@@ -32,7 +32,7 @@ from .error_reporting import publish_failure
 
 
 NONE = "(none)"
-VERSION = "0.1.0"
+VERSION = "0.90"
 SOURCE_OPTIONAL_KEYS = ({key for idx in range(3, 9) for key in (f"lora_{idx}", f"weight_{idx}")}
                         | {f"enabled_{idx}" for idx in range(1, 9)})
 

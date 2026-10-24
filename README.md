@@ -2,6 +2,10 @@
 
 # LoRA Blend One
 
+**v0.90 — Still Experimental Node**
+
+This node pack is still experimental. Features and model compatibility are under validation.
+
 ![LoRA Blend One — blend compatible LoRAs in ComfyUI](docs/images/lora-blend-one-banner.png)
 
 Blend compatible LoRAs into one reusable `.safetensors` file in ComfyUI.

@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-lora-blend-one"
-version = "0.1.0"
+version = "0.90"
 description = "Blend compatible LoRAs in ComfyUI with rank compression, MOSS-Image support, and Krea2 gate-aware merging."
 readme = "README.md"
 requires-python = ">=3.10"
