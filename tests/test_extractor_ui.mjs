@@ -3,6 +3,42 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
+test('extraction progress stays with its submitted graph and prompt', () => {
+    const listeners=new Map();let extension;
+    const api={addEventListener(k,fn){if(!listeners.has(k))listeners.set(k,new Set());listeners.get(k).add(fn);},
+        removeEventListener(k,fn){listeners.get(k)?.delete(fn);}};
+    const app={ui:{settings:{getSettingValue:()=> 'ja',addEventListener(){},removeEventListener(){}}},registerExtension:e=>extension=e};
+    const box={app,api,document:{createElement:()=>({style:{}})}};vm.createContext(box);
+    vm.runInContext(fs.readFileSync(new URL('../web/i18n.js',import.meta.url),'utf8').replaceAll('export ',''),box);
+    vm.runInContext(fs.readFileSync(new URL('../web/extractor.js',import.meta.url),'utf8').replace(/^import .*$/gm,''),box);
+    class Node {
+        constructor(){this.id=1;this.size=[340,200];this.widgets=[{name:'mode',type:'combo',value:'Fixed Rank'}];}
+        addWidget(type,name,value,callback,options){const w={type,name,value,callback,options};this.widgets.push(w);return w;}
+        addDOMWidget(name,type,element,options){const w={name,type,element,options};this.widgets.push(w);return w;}
+        computeSize(){return [340,200];}setSize(s){this.size=s;}
+    }
+    extension.beforeRegisterNodeDef(Node,{name:'LoRABlendModelExtract',input:{optional:{}}});
+    const a=new Node(),b=new Node();
+    a.graph={id:'a',getNodeById:()=>a};b.graph={id:'b',getNodeById:()=>b};a.onNodeCreated();b.onNodeCreated();
+    const send=(k,detail)=>{for(const fn of listeners.get(k)||[])fn({detail});};
+    const progress=d=>send('lora_blend_one.extract_status',{node_id:'1',prompt_id:'p-a',workflow_id:'a',text:'Extract A',...d});
+    a.widgets[0].beforeQueued();send('execution_start',{prompt_id:'p-a',workflow_id:'a'});
+    const bBefore=b.lboExtractStatus.value;app.graph=b.graph;
+    progress();assert.equal(a.lboExtractStatus.value,'Extract A');assert.equal(b.lboExtractStatus.value,bBefore);
+    for(const invalid of [{prompt_id:'old'},{node_id:'99'},{workflow_id:'b'},{prompt_id:undefined}]) {
+        progress({...invalid,text:'Wrong'});assert.equal(a.lboExtractStatus.value,'Extract A');
+    }
+    b.widgets[0].beforeQueued();send('execution_start',{prompt_id:'p-b'});
+    progress({prompt_id:'p-b',workflow_id:'b',text:'Stopped reason'});
+    assert.match(b.lboExtractStatus.value,/停止 reason/);
+    const bResult=b.lboExtractStatus.value;
+    send('execution_start',{prompt_id:'foreign'});progress({prompt_id:'foreign',workflow_id:'b',text:'Wrong'});
+    assert.equal(b.lboExtractStatus.value,bResult);
+    a.graph.id='replacement';progress({text:'Wrong'});assert.equal(a.lboExtractStatus.value,'Extract A');
+    a.onRemoved();b.onRemoved();assert.equal(listeners.get('execution_start').size,0);
+    assert.equal(listeners.get('lora_blend_one.extract_status').size,0);
+});
+
 test('extractor accordion, mode visibility, locale, status and values', () => {
     const events = {}, apiEvents = {};
     let locale = 'en', extension;
@@ -21,7 +57,7 @@ test('extractor accordion, mode visibility, locale, status and values', () => {
         computeSize(){return [340,200];} setSize(size){this.size=size;}
     }
     extension.beforeRegisterNodeDef(Node,{name:'LoRABlendModelExtract',input:{optional:{seed:['INT',{advanced:true}]}}});
-    const n=new Node();n.comfyClass='LoRABlendModelExtract';n.onNodeCreated();
+    const n=new Node();n.id=1;n.graph={id:'workflow-a',getNodeById:()=>n};n.comfyClass='LoRABlendModelExtract';n.onNodeCreated();
     const find=name=>n.widgets.find(w=>w.name===name);
     assert.equal(find('rank').type,'number');assert.equal(find('energy').type,'lbo_hidden');
     assert.equal(find('seed').type,'lbo_hidden');
@@ -29,7 +65,8 @@ test('extractor accordion, mode visibility, locale, status and values', () => {
     find('mode').value='Auto Rank';find('mode').callback();assert.equal(find('rank').type,'lbo_hidden');assert.equal(find('energy').type,'number');
     locale='ja';events['Comfy.Locale.change']();assert.match(button.name,/Advanced/);assert.match(button.tooltip,/表示・非表示/);
     assert.equal(find('seed').value,16);assert.equal(button.serialize,false);
-    app.graph={getNodeById:()=>n};apiEvents['lora_blend_one.extract_status']({detail:{node_id:'1',text:'Saved'}});
+    n.widgets[0].beforeQueued();apiEvents.execution_start({detail:{prompt_id:'prompt-a'}});
+    app.graph=n.graph;apiEvents['lora_blend_one.extract_status']({detail:{node_id:'1',prompt_id:'prompt-a',text:'Saved'}});
     assert.equal(n.lboExtractStatus.value,'Saved');n.onExecuted({text:['result']});assert.equal(n.lboExtractStatus.value,'result');
 });
 
@@ -40,7 +77,7 @@ test('all extractor controls keep English labels and switch hover help without c
     const app = {ui:{settings:{getSettingValue:()=>locale,
         addEventListener:(_,fn)=>localeListeners.add(fn), removeEventListener:(_,fn)=>localeListeners.delete(fn)}},
         registerExtension: value=>extension=value};
-    const sandbox={app,api:{addEventListener(){}},document:{createElement:()=>({style:{}})}};
+    const sandbox={app,api:{addEventListener(){},removeEventListener(){}},document:{createElement:()=>({style:{}})}};
     vm.createContext(sandbox);
     vm.runInContext(fs.readFileSync(new URL('../web/i18n.js',import.meta.url),'utf8').replaceAll('export ',''),sandbox);
     vm.runInContext(fs.readFileSync(new URL('../web/extractor.js',import.meta.url),'utf8').replace(/^import .*$/gm,''),sandbox);

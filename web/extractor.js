@@ -242,6 +242,40 @@ app.registerExtension({
             const statusWidget = node.addDOMWidget?.('extract_status', 'text', status, {serialize:false, getMinHeight: () => 100});
             if (statusWidget) statusWidget.serialize = false;
             node.lboExtractStatus = status;
+            if (data.name === 'LoRABlendModelExtract') {
+                let queuedGraph, runGraph, runWorkflowId, promptId;
+                const first = originals[0], beforeQueued = first?.beforeQueued;
+                if (first) first.beforeQueued = function (...args) {
+                    queuedGraph = node.graph;
+                    return beforeQueued?.apply(this, args);
+                };
+                const workflowId = () => node.graph?.rootGraph?.id ?? node.graph?.id;
+                const started = ({detail}) => {
+                    const queued = queuedGraph; queuedGraph = null;
+                    if (!node.graph || node.graph.getNodeById?.(node.id) !== node) return;
+                    if (detail.workflow_id != null ? String(detail.workflow_id) !== String(workflowId()) : queued !== node.graph) return;
+                    runGraph = node.graph; runWorkflowId = workflowId(); promptId = detail.prompt_id;
+                };
+                const progress = ({detail}) => {
+                    if (!promptId || detail.prompt_id !== promptId || String(detail.node_id) !== String(node.id)
+                        || node.graph !== runGraph || node.graph?.getNodeById?.(node.id) !== node
+                        || workflowId() !== runWorkflowId
+                        || (detail.workflow_id != null && String(detail.workflow_id) !== String(runWorkflowId))) return;
+                    let value = detail.text;
+                    if (value.startsWith('Stopped')) value = text(app, value,
+                        value.replace('Stopped', '停止') + '\n入力ファイル・対象キー・保存精度を確認してください。');
+                    node.lboExtractMessage = null;
+                    status.value = value;
+                };
+                api.addEventListener('execution_start', started);
+                api.addEventListener('lora_blend_one.extract_status', progress);
+                const removed = node.onRemoved;
+                node.onRemoved = function (...args) {
+                    api.removeEventListener('execution_start', started);
+                    api.removeEventListener('lora_blend_one.extract_status', progress);
+                    return removed?.apply(this, args);
+                };
+            }
             let preset, apply;
             if (data.name === 'LoRABlendModelExtract') {
                 preset = node.addWidget('combo', 'Rank Preset', '32', value => {
@@ -442,14 +476,4 @@ app.registerExtension({
             return result;
         };
     },
-});
-api.addEventListener('lora_blend_one.extract_status', event => {
-    const node = app.graph?.getNodeById(event.detail.node_id);
-    if (names.has(node?.comfyClass) && node.lboExtractStatus) {
-        let value = event.detail.text;
-        if (value.startsWith('Stopped')) value = text(app, value,
-            value.replace('Stopped', '停止') + '\n入力ファイル・対象キー・保存精度を確認してください。');
-        node.lboExtractMessage = null;
-        node.lboExtractStatus.value = value;
-    }
 });

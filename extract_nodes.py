@@ -129,10 +129,11 @@ class LoRABlendModelExtract(LoRABlendModelInspect):
                 'hash_inputs': ('BOOLEAN', {'default': True, 'advanced': True}),
                 'write_report': ('BOOLEAN', {'default': True, 'advanced': True}),
                 'extraction_plan': ('LBO_EXTRACTION_PLAN',),
-                'plan_action': (['Review Only', 'Extract and Save'], {'default': 'Review Only'})}}
+                'plan_action': (['Review Only', 'Extract and Save'], {'default': 'Review Only'})},
+                'hidden': {'extra_pnginfo': 'EXTRA_PNGINFO'}}
 
     def run(self, base_model, modified_model, mode, rank, energy, dtype, filename_prefix,
-            extraction_plan=None, plan_action='Review Only', **kwargs):
+            extraction_plan=None, plan_action='Review Only', extra_pnginfo=None, **kwargs):
         effective = {'base_model': base_model, 'modified_model': modified_model, 'mode': mode, 'rank': rank,
                      'energy': energy, 'dtype': dtype, 'max_rank': kwargs.get('max_rank', 64),
                      'non_lora': kwargs.get('non_lora', 'Stop'), 'device': kwargs.get('device', 'auto'),
@@ -152,17 +153,24 @@ class LoRABlendModelExtract(LoRABlendModelInspect):
             raise ValueError('Filename Prefix must stay inside ComfyUI/output')
         bar = comfy.utils.ProgressBar(1)
         started = time.monotonic()
+        try:
+            from server import PromptServer
+            from comfy_execution.utils import get_executing_context
+        except ImportError:
+            context = None
+        else:
+            context = get_executing_context()
+            if context is not None:
+                server = PromptServer.instance
+                client_id = server.client_id
+        workflow = (extra_pnginfo or {}).get('workflow') or {}
         def progress(stage, key, done, total):
             bar.update_absolute(done, max(1, total))
-            try:
-                from server import PromptServer
-                from comfy_execution.utils import get_executing_context
-            except ImportError:
-                return
-            context = get_executing_context()
-            if context is not None and PromptServer.instance.client_id is not None:
-                PromptServer.instance.send_sync('lora_blend_one.extract_status',
-                    {'node_id': str(context.node_id), 'text': f'{stage} {done}/{total} | {time.monotonic()-started:.1f}s\n{key}'}, PromptServer.instance.client_id)
+            if context is not None and client_id is not None:
+                server.send_sync('lora_blend_one.extract_status',
+                    {'node_id': str(context.node_id), 'prompt_id': context.prompt_id,
+                     'workflow_id': workflow.get('id'),
+                     'text': f'{stage} {done}/{total} | {time.monotonic()-started:.1f}s\n{key}'}, client_id)
         try:
             output, report = extract(resolve(base_model), resolve(modified_model), prefix,
                                      mode=mode, rank=rank, energy=energy, dtype=dtype,

@@ -196,6 +196,8 @@ class LoRABlendOne:
             raise MergeError("krea2_count", [name for _, name, _ in selected],
                              "Krea2 Gate-Aware requires exactly two selected LoRA slots.")
         coalesced = [(name, weight) for _, name, weight in selected] if krea2 else _coalesce_duplicate_sources(selected)
+        if not krea2:
+            coalesced = [(name, weight) for name, weight in coalesced if weight != 0.0]
         names = [x[0] for x in coalesced]
         raw_weights = [x[1] for x in coalesced]
         try:
@@ -342,6 +344,8 @@ class LoRABlendSources:
         choices = _lora_choices()
         for idx, name in enumerate(names, start=1):
             if not kwargs.get(f"enabled_{idx}", True) or not name or name == NONE:
+                continue
+            if kwargs.get(f"weight_{idx}", 1.0) == 0.0:
                 continue
             if name not in choices:
                 return f"LoRA {idx}: selected file is unavailable: {name}. Choose an installed LoRA or turn this slot off."

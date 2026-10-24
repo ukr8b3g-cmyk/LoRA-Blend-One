@@ -229,9 +229,33 @@ class NodeIntegrationTests(unittest.TestCase):
             with safe_open(str(output / "loras" / "legacy_toggled_00001_.safetensors"), framework="pt", device="cpu") as f:
                 recipe = json.loads(f.metadata()["lbo_recipe_json"])
                 self.assertEqual(recipe["summary"]["source_count"], 1)
-            with self.assertRaisesRegex(ValueError, "MOSS-Image LoRAs"):
-                Node().merge("moss.safetensors", 100., "l0.safetensors", 0., "Auto", "loras/zero_still_selected",
-                             device="cpu", hash_inputs=False)
+            for method in ("Auto", "Weighted", "TIES", "DARE", "DELLA"):
+                resolved_names.clear()
+                result = Node().merge("moss.safetensors", 100., "l0.safetensors", 0., "16", "loras/zero_" + method,
+                                      merge_method=method, device="cpu", hash_inputs=False, write_report=False)
+                self.assertEqual(result['ui']['model_detection'], ['MOSS-Image'])
+                self.assertEqual(resolved_names, ['moss.safetensors'])
+            resolved_names.clear()
+            self.assertIs(Sources.VALIDATE_INPUTS(lora_1='moss.safetensors', weight_1=100.,
+                                                lora_2='missing.safetensors', weight_2=0.), True)
+            resolved_names.clear()
+            zero_sources = Sources().select('moss.safetensors', 100., 'missing.safetensors', 0.)[0]
+            Blend().merge(zero_sources, '16', 'loras/zero_missing', device='cpu', hash_inputs=False)
+            self.assertEqual(resolved_names, ['moss.safetensors'])
+            with self.assertRaises(ValueError) as caught:
+                Node().merge('moss.safetensors', 0., 'l0.safetensors', 0., '16', 'loras/all_zero', device='cpu')
+            self.assertEqual(caught.exception.code, 'invalid_weights')
+            for mode in ('normalize', 'direct'):
+                resolved_names.clear()
+                Node().merge('l0.safetensors', 20., 'l0.safetensors', -20., '16', 'loras/cancel_' + mode,
+                             lora_3='moss.safetensors', weight_3=100., weight_mode=mode,
+                             device='cpu', hash_inputs=False)
+                self.assertEqual(resolved_names, ['moss.safetensors'])
+            Node().merge('l0.safetensors', 0., 'l1.safetensors', 100., '16', 'loras/krea_zero',
+                         merge_method='Krea2 Gate-Aware', device='cpu', hash_inputs=False)
+            with safe_open(str(output / 'loras' / 'krea_zero_00001_.safetensors'), framework='pt') as f:
+                recipe = json.loads(f.metadata()['lbo_recipe_json'])
+                self.assertEqual([x['weight'] for x in recipe['sources']], [0., 1.])
 
             all_off = dict(lora_1="moss.safetensors", weight_1=100., lora_2="l0.safetensors", weight_2=50.,
                            enabled_1=False, enabled_2=False)

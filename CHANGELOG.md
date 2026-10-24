@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Omit zero-weight standard merge sources before loading/compatibility checks, including cancelled duplicate coefficients; preserve Krea2's two-input semantics.
+- Route Model Extract progress by prompt/workflow/node identity to the original client, preventing same-number nodes in other workflows from receiving it.
+
 - Default model extraction to Fixed Rank 32, add rank presets, and keep connected Inspect recommendations advisory until explicitly applied.
 - Show Review Only / Extract and Save as highlighted buttons and include a connected Inspect→Extract distribution template with Review Only defaults.
 - Buffer up to 256 MiB of extracted tensor data for one verified save, retaining disk spooling for larger outputs; document CPU/native-loader validation and the save-only timing comparison.

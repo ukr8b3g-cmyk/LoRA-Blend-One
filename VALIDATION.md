@@ -1,5 +1,15 @@
 # Validation — LoRA Blend One
 
+## Zero-weight filtering and extraction progress isolation — 2026-10-24
+
+The full suite passed **89 Python tests and 38 JavaScript tests** after both fixes. Before changing production code, a MOSS100% + incompatible0% merge failed compatibility checks, and an extraction progress event updated the same-number node in another active workflow. Updated Python regression tests also failed against the old behavior. After the final no-execution-context adjustment, the ten extraction-plan tests passed again.
+
+- Standard merge node paths filter exactly-zero effective coefficients after combining duplicate filenames, before file loading and compatibility checks. CPU checks exercised Auto/Weighted/TIES/DARE/DELLA, saved outputs/recipes, a zero-weight missing file, +20/-20 duplicate cancellation, all-zero rejection, and unchanged Krea2 two-input behavior with 0%/100% weights. The Sources payload retains its selections; zero filtering belongs to the standard merge path.
+- Extract adds prompt/workflow identity to progress, captures the original client, and consumes hidden workflow metadata without forwarding it into the extraction engine. A Python test changes the active server client mid-run and verifies that every progress event retains the original client, prompt, node, and workflow.
+- JavaScript Graph/DOM tests bind progress to the original node and submitted run. Same-number nodes in separate graphs stay independent when the active graph changes; foreign/stale prompt, wrong workflow/node, absent prompt ID, changed graph identity, and unqueued execution-start events are rejected. Node removal unregisters listeners; localized stop messages still work.
+
+These checks use small CPU fixtures and simulated frontend objects. No live Chrome tab-switch test, real-LoRA GPU generation, or service restart was performed for this fix. Existing extraction math, saved workflow widget positions, rank settings, Krea2 merging, and standard merge calculations remain covered by the regression suite.
+
 ## Extraction controls and save buffering — 2026-10-23–24
 
 The current suite passed **88 Python tests and 37 JavaScript tests**. Added checks cover connected manual settings versus advisory plans, stale/mismatched model refusal, Review Only without saving, one-time recommendation application, rank presets, English/Japanese help, selected-action button drawing/click handling and serialization, memory/disk writer equivalence, corruption detection, nonfinite/duplicate rejection, cancellation, and owned buffered tensor values. JavaScript uses test Graph/DOM objects; it is not live browser validation.

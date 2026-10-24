@@ -149,6 +149,30 @@ class ExtractionPlanTests(unittest.TestCase):
         self.b['final_norm_video.weight'] += 1; self.write()
         self.assertEqual(self.inspect(scan='Full Scan', purpose='Blend One Source', allow_partial=True)['result'][1]['blocked_reason'], 'no_matrix_difference')
 
+    def test_progress_keeps_prompt_workflow_and_original_client(self):
+        sent = []
+        server = types.SimpleNamespace(client_id='client-a', send_sync=lambda *args: sent.append(args))
+        utils = types.ModuleType('comfy_execution.utils')
+        utils.get_executing_context = lambda: types.SimpleNamespace(node_id='1', prompt_id='prompt-a')
+        server_module = types.ModuleType('server'); server_module.PromptServer = types.SimpleNamespace(instance=server)
+        def engine(*args, **kwargs):
+            self.assertNotIn('extra_pnginfo', kwargs)
+            kwargs['progress']('Extract', 'layer', 1, 2)
+            server.client_id = 'client-b'
+            kwargs['progress']('Saved', 'result', 2, 2)
+            return 'result.safetensors', {'artifact_type':'standard_lora', 'layers':[],
+                'relative_error_all_parameters':0., 'warnings':[]}
+        with patch.dict(sys.modules, {'server':server_module, 'comfy_execution.utils':utils}), \
+             patch.object(self.module, 'extract', side_effect=engine):
+            self.run_node(extra_pnginfo={'workflow':{'id':'workflow-a'}})
+        self.assertEqual(len(sent), 2)
+        for name, payload, client in sent:
+            self.assertEqual(name, 'lora_blend_one.extract_status')
+            self.assertEqual(client, 'client-a')
+            self.assertEqual(payload['node_id'], '1')
+            self.assertEqual(payload['prompt_id'], 'prompt-a')
+            self.assertEqual(payload['workflow_id'], 'workflow-a')
+
 
 if __name__ == '__main__':
     unittest.main()

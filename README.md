@@ -152,7 +152,7 @@ The side-by-side **Review Only** and **Extract and Save** buttons show the selec
 
 For outputs with up to **256 MiB of saved tensor data**, extraction now buffers tensors in CPU memory and writes once. Larger outputs switch to disk spooling. This limit covers buffered tensor data, not total RAM use. Finite-value checks, full saved-tensor verification, cancellation handling, and non-overwriting publication remain enabled. This changes saving, not SVD or weight-error measurement.
 
-### Current local verification — 2026-10-23–24
+### Extraction controls verification — 2026-10-23–24
 
 **88 Python tests and 37 JavaScript tests passed**, including manual connected settings, English/Japanese help, button selection and workflow serialization, bounded-memory/disk saving, corrupt-output detection, and existing MOSS/Krea2 blending regressions. JavaScript uses a test Graph/DOM, not a live ComfyUI screen.
 
@@ -185,6 +185,16 @@ For the exact run, the **269 matrix targets used ranks 125–2898, median 1823**
 Retained energy is `1 - relative_Frobenius_error²`; it describes reconstruction of the **model weight difference**, not image similarity or quality. A 99% energy target corresponds to roughly 10% relative norm error. The output exceeds the approximately 10.16 GB source model, so high retention did **not** provide a size reduction for this pair. The exact CPU run took about 35.5 minutes including save verification; this is one observed run, not a performance estimate.
 
 All three outputs were saved and reopened. The installed native ComfyUI MOSS loader recognized **344 changed targets** (269 matrices and 75 direct differences), with **zero unused keys**; actual Q-slice, O-projection, and norm1 weight application passed. A separate, explicitly partial one-layer standard-LoRA extraction also passed Blend One blend/save/reload; this does not make the complete hybrid output a supported blend source. No live extraction-node browser check, GPU generation, or image-quality comparison was performed. See [VALIDATION.md](VALIDATION.md) and the [implementation design and scope](docs/MODEL_DELTA_EXTRACT_DESIGN.ja.md).
+
+## Zero-weight inputs and extraction progress — 2026-10-24
+
+**Auto / Weighted / TIES / DARE / DELLA** now omit sources with an effective weight of exactly zero **before reading files or checking model compatibility**. Duplicate filenames are combined first, so cancelling coefficients also omit that source. A 0% SDXL source no longer blocks a valid MOSS blend, and a 0% missing file does not block Sources validation. Source selections and toggles stay editable; the saved recipe contains only contributing sources. All-zero blends still stop with an invalid-weights error. **Krea2 Gate-Aware retains its existing two-selected-input behavior**, including a zero coefficient.
+
+**Model Extract progress** is associated with the originating prompt, workflow, and node. The sender keeps the original client destination; each receiving node verifies the run identity and its graph before updating its status. Switching to another workflow with the same node number no longer writes progress into that workflow. Removed nodes unsubscribe from progress events.
+
+**Verification:** both problems were reproduced before the fix. The suite passed **89 Python tests and 38 JavaScript tests**. CPU node tests cover all five standard methods, save/reload and recipe contents, zero/missing sources, cancelling duplicate weights, all-zero rejection, and unchanged Krea2 behavior. JavaScript Graph/DOM tests cover same-number nodes in separate workflows, stale/foreign prompts, wrong workflow/node IDs, missing run IDs, graph changes, listener cleanup, and Japanese stop messages. A backend test changes the server's active client during execution and confirms that progress still goes only to the original client. SVD, extraction math, and storage precision were not changed.
+
+These are CPU and simulated frontend checks. **Live browser tab-switch validation and GPU generation were not performed for this fix. Restart ComfyUI and reload the browser after updating.** See [VALIDATION.md](VALIDATION.md).
 
 ## Interface language
 
