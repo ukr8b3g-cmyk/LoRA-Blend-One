@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Share accepted-prompt tracking between extraction progress/results and blend errors, fixing later jobs queued before execution and stale source names in Legacy/Split/Sources.
+- Preserve fast results received before queue acknowledgement, reject delayed/foreign outputs, and release run listeners/state on completion or removal. No merge math or saved workflow settings changed.
+
 - Omit zero-weight standard merge sources before loading/compatibility checks, including cancelled duplicate coefficients; preserve Krea2's two-input semantics.
 - Route Model Extract progress by prompt/workflow/node identity to the original client, preventing same-number nodes in other workflows from receiving it.
 

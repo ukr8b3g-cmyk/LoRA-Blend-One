@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { loadRunTracker } from './helpers/run_tracker.mjs';
 import { execFileSync } from 'node:child_process';
 
 function uiSource(file) {
@@ -27,6 +28,7 @@ test('custom UI follows ComfyUI locale without changing saved settings', () => {
         registerExtension: extension => extensions.push(extension) };
     const api = { addEventListener() {}, removeEventListener() {} };
     const context = vm.createContext({ app, api, queueMicrotask });
+    loadRunTracker(context);
     for (const file of ['i18n.js', 'source_toggles.js', 'recipe.js', 'power_loader.js', 'accordion.js', 'model_status.js']) {
         const source = uiSource(file)
             .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
@@ -60,7 +62,7 @@ test('custom UI follows ComfyUI locale without changing saved settings', () => {
     assert.equal(header.name, '▶ Advanced');
     assert.equal(draw(), 'Model detection: run to detect');
     assert.equal(node.widgets.find(widget => widget.name === 'seed').hidden, true);
-    node.onExecuted({ model_detection: ['MOSS-Image'] });
+    node.loraBlendDetectedModel = 'MOSS-Image'; // Routing is covered by test_error_ui.
     assert.equal(draw(), 'Last detected model: MOSS-Image');
     locale = 'ja';
     for (const callback of listeners) callback();

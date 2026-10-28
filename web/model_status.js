@@ -1,5 +1,5 @@
 import { app } from '../../scripts/app.js';
-import { api } from '../../scripts/api.js';
+import { trackNodeRuns } from './run_tracker.js';
 import { text } from './i18n.js';
 
 const MERGE_NODES = new Set(['LoRABlendOne', 'LoRABlendOneSplit']);
@@ -145,70 +145,33 @@ app.registerExtension({
             this.loraBlendClearFailure = clear;
             this.loraBlendShowFailure = show;
 
-            // Widget lifecycle hooks associate an accepted run with its submitting graph.
-            const first = this.widgets?.[0];
-            if (first) {
-                const beforeQueued = first.beforeQueued;
-                first.beforeQueued = function (...args) {
-                    const value = beforeQueued?.apply(this, args);
-                    node.loraBlendQueuedGraph = node.graph;
-                    clear(true);
-                    return value;
-                };
-            }
-            function sameWorkflow(detail) {
-                const graphId = node.graph?.rootGraph?.id ?? node.graph?.id;
-                return graphId != null && String(detail.workflow_id) === String(graphId);
-            }
-            function sameRun(detail) {
-                return currentNode(node) && node.loraBlendRunGraph === node.graph
-                    && detail.prompt_id && detail.prompt_id === node.loraBlendPromptId
-                    && (detail.workflow_id == null || sameWorkflow(detail));
-            }
-            const handlers = {
-                execution_start: ({ detail }) => {
-                    node.loraBlendObservedPromptId = detail.prompt_id;
-                    const queuedGraph = node.loraBlendQueuedGraph;
-                    node.loraBlendQueuedGraph = null;
-                    if (!currentNode(node)) return;
-                    if (detail.workflow_id != null) {
-                        if (!sameWorkflow(detail)) return;
-                    } else if (queuedGraph !== node.graph) return;
-                    node.loraBlendPromptId = detail.prompt_id;
-                    node.loraBlendRunGraph = node.graph;
-                    clear(true);
+            trackNodeRuns(node, nodeData.name, {
+                execution_start: () => clear(true),
+                'lora_blend_one.error': detail => {
+                    if (detail.error) show(detail.error, true);
                 },
-                executing: ({ detail }) => {
-                    if (currentNode(node) && node.loraBlendRunGraph === node.graph
-                        && node.loraBlendObservedPromptId === node.loraBlendPromptId && String(detail) === String(node.id)) clear(true);
-                },
-                'lora_blend_one.error': ({ detail }) => {
-                    if (sameRun(detail) && String(detail.node_id) === String(node.id) && detail.error) show(detail.error, true);
-                },
-                execution_error: ({ detail }) => {
-                    if (!sameRun(detail) || String(detail.node_id) !== String(node.id)
-                        || (detail.node_type && detail.node_type !== nodeData.name) || node.loraBlendStructuredFailure) return;
+                execution_error: detail => {
+                    if ((detail.node_type && detail.node_type !== nodeData.name) || node.loraBlendStructuredFailure) return;
                     show(executionFailure(node, detail));
                 },
-                execution_success: ({ detail }) => {
-                    if (!sameRun(detail)) return;
-                    node.loraBlendQueuedGraph = null;
+                execution_success: () => clear(),
+                executed: detail => {
                     clear();
+                    node.loraBlendDetectedModel = detail.output?.model_detection?.[0] || null;
+                    node.graph?.setDirtyCanvas?.(true, true);
                 },
-            };
+            });
             const settings = app.ui?.settings;
             const localeChanged = () => resizeStatus(node);
             let subscribed = false;
             function subscribe() {
                 if (subscribed) return;
                 subscribed = true;
-                for (const [name, handler] of Object.entries(handlers)) api.addEventListener(name, handler);
                 settings?.addEventListener?.('Comfy.Locale.change', localeChanged);
             }
             function unsubscribe() {
                 if (!subscribed) return;
                 subscribed = false;
-                for (const [name, handler] of Object.entries(handlers)) api.removeEventListener(name, handler);
                 settings?.removeEventListener?.('Comfy.Locale.change', localeChanged);
             }
             const added = this.onAdded;
@@ -220,24 +183,10 @@ app.registerExtension({
             const removed = this.onRemoved;
             this.onRemoved = function (...args) {
                 unsubscribe();
-                node.loraBlendQueuedGraph = null;
-                node.loraBlendPromptId = null;
-                node.loraBlendRunGraph = null;
-                node.loraBlendObservedPromptId = null;
                 return removed?.apply(this, args);
             };
             subscribe();
             resizeStatus(this);
-            return result;
-        };
-
-        const executed = nodeType.prototype.onExecuted;
-        nodeType.prototype.onExecuted = function (message) {
-            const result = executed?.apply(this, arguments);
-            if (this.loraBlendObservedPromptId && this.loraBlendObservedPromptId !== this.loraBlendPromptId) return result;
-            this.loraBlendClearFailure?.();
-            this.loraBlendDetectedModel = message?.model_detection?.[0] || null;
-            (this.graph || app.graph)?.setDirtyCanvas?.(true, true);
             return result;
         };
 

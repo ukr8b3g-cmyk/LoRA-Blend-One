@@ -1,5 +1,15 @@
 # Validation — LoRA Blend One
 
+## Shared tracking for queued progress and errors — 2026-10-28
+
+The JavaScript suite passed **51 tests**. Before the change, all three error-node variants (Legacy, Split and Sources) retained the first error's filename when two jobs were queued before either started. The existing local extraction-progress fix was incorporated into the same accepted-prompt tracker; no numerical or Python code was changed.
+
+- Tests cover multiple accepted jobs, workflow metadata present/absent/conflicting, same node IDs in different graphs, foreign clients, reordered execution and HTTP responses, failed/excluded submissions, early structured errors and completion, stale final outputs, interruption, cancellation cleanup at queue idle, graph identity changes, removal/re-addition, and listener cleanup. Structured details retain priority over generic errors. English/Japanese text, wrapping and serialized widget values remain covered.
+- The final installed-frontend check used isolated Chrome, real registered nodes and the actual `app.queuePrompt` path, with controlled HTTP queue acknowledgements and injected API events. Two accepted prompts updated progress and source filenames independently; stale/foreign events and same-number nodes in another graph were isolated. Widget values/order were unchanged with seed controls fixed. No page errors were recorded. User workflow/settings writes were blocked.
+- During an earlier idle-queue check, two deliberately empty Sources jobs reached the real backend and displayed `no_sources` twice. That browser attempt subsequently failed the settings-preservation assertion because its seed control was still set to randomize; the final fixture fixes the seed. Only those two QA history entries were removed. The final browser check used simulated jobs while the user's queue was active.
+
+This is not a real-model extraction, GPU, live user-tab switch, or image-quality comparison. Python tests were not rerun for this frontend-only change. Existing user jobs, model files and workflows were preserved; the backend was not restarted. Browser reload is required to use the new JavaScript.
+
 ## Zero-weight filtering and extraction progress isolation — 2026-10-24
 
 The full suite passed **89 Python tests and 38 JavaScript tests** after both fixes. Before changing production code, a MOSS100% + incompatible0% merge failed compatibility checks, and an extraction progress event updated the same-number node in another active workflow. Updated Python regression tests also failed against the old behavior. After the final no-execution-context adjustment, the ten extraction-plan tests passed again.

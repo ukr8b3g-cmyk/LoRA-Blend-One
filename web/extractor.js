@@ -1,5 +1,5 @@
 import { app } from '../../scripts/app.js';
-import { api } from '../../scripts/api.js';
+import { trackNodeRuns } from './run_tracker.js';
 import { text, watchLocale } from './i18n.js';
 
 // English labels are stable; only help follows Comfy.Locale.
@@ -243,38 +243,16 @@ app.registerExtension({
             if (statusWidget) statusWidget.serialize = false;
             node.lboExtractStatus = status;
             if (data.name === 'LoRABlendModelExtract') {
-                let queuedGraph, runGraph, runWorkflowId, promptId;
-                const first = originals[0], beforeQueued = first?.beforeQueued;
-                if (first) first.beforeQueued = function (...args) {
-                    queuedGraph = node.graph;
-                    return beforeQueued?.apply(this, args);
-                };
-                const workflowId = () => node.graph?.rootGraph?.id ?? node.graph?.id;
-                const started = ({detail}) => {
-                    const queued = queuedGraph; queuedGraph = null;
-                    if (!node.graph || node.graph.getNodeById?.(node.id) !== node) return;
-                    if (detail.workflow_id != null ? String(detail.workflow_id) !== String(workflowId()) : queued !== node.graph) return;
-                    runGraph = node.graph; runWorkflowId = workflowId(); promptId = detail.prompt_id;
-                };
-                const progress = ({detail}) => {
-                    if (!promptId || detail.prompt_id !== promptId || String(detail.node_id) !== String(node.id)
-                        || node.graph !== runGraph || node.graph?.getNodeById?.(node.id) !== node
-                        || workflowId() !== runWorkflowId
-                        || (detail.workflow_id != null && String(detail.workflow_id) !== String(runWorkflowId))) return;
-                    let value = detail.text;
-                    if (value.startsWith('Stopped')) value = text(app, value,
-                        value.replace('Stopped', '停止') + '\n入力ファイル・対象キー・保存精度を確認してください。');
-                    node.lboExtractMessage = null;
-                    status.value = value;
-                };
-                api.addEventListener('execution_start', started);
-                api.addEventListener('lora_blend_one.extract_status', progress);
-                const removed = node.onRemoved;
-                node.onRemoved = function (...args) {
-                    api.removeEventListener('execution_start', started);
-                    api.removeEventListener('lora_blend_one.extract_status', progress);
-                    return removed?.apply(this, args);
-                };
+                trackNodeRuns(node, data.name, {
+                    executed: detail => applyResult(detail.output),
+                    'lora_blend_one.extract_status': detail => {
+                        let value = detail.text;
+                        if (value.startsWith('Stopped')) value = text(app, value,
+                            value.replace('Stopped', '停止') + '\n入力ファイル・対象キー・保存精度を確認してください。');
+                        node.lboExtractMessage = null;
+                        status.value = value;
+                    },
+                });
             }
             let preset, apply;
             if (data.name === 'LoRABlendModelExtract') {
@@ -457,10 +435,8 @@ app.registerExtension({
                 refresh();
                 return r;
             };
-            const executed = node.onExecuted;
-            node.onExecuted = function (message) {
-                executed?.call(this,message);
-                if (!this.title || defaultTitles.has(this.title)) this.title = englishTitle;
+            function applyResult(message) {
+                if (!node.title || defaultTitles.has(node.title)) node.title = englishTitle;
                 if (message?.text) {
                     node.lboExtractMessage = message.text.join('\n');
                     if (data.name === 'LoRABlendModelInspect' && node.properties.extract_inspection_result !== node.lboExtractMessage) {
@@ -470,7 +446,15 @@ app.registerExtension({
                     status.value = data.name === 'LoRABlendModelInspect'
                         ? inspectionText(app, node.lboExtractMessage) : extractText(node.lboExtractMessage);
                 }
-            };
+            }
+            if (data.name === 'LoRABlendModelInspect') {
+                const executed = node.onExecuted;
+                node.onExecuted = function (message) {
+                    const result = executed?.call(this, message);
+                    applyResult(message);
+                    return result;
+                };
+            }
             watchLocale(app, node, refresh);
             refresh();
             return result;
