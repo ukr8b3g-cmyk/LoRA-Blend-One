@@ -24,6 +24,14 @@ MESSAGES = {
     "model_mismatch": (
         "The LoRAs have different model families and no matching target layers.", "モデル系統と適用先レイヤーが一致していません。",
         "Use LoRAs for the same base model, or turn OFF the incompatible slots.", "同じベースモデル用のLoRAを選ぶか、互換性のない枠をOFFにしてください。"),
+    "ambiguous_target": (
+        "The layer names could refer to the same model weights.", "異なる層名が同じ重みを指す可能性があります。",
+        "Check the names in the details and use adapters with matching layer names or model-family metadata.",
+        "詳細に表示された層名を確認し、層名の表記が揃ったLoRAか、モデル系統を記録したLoRAを選んでください。"),
+    "duplicate_target": (
+        "One LoRA lists the same layer under two names.", "1本のLoRAに同じ層が2つの名前で含まれています。",
+        "Check the two names in the details and select a file with one entry for that layer.",
+        "詳細に表示された2つの名前を確認し、その層が1回だけ登録されたファイルを選んでください。"),
     "unsupported_adapter": (
         "The file contains an unsupported adapter format.", "未対応形式のアダプターが含まれています。",
         "Use a Standard LoRA with down/up factors, or turn OFF this slot.", "down/up因子を持つ標準LoRAに変更するか、この枠をOFFにしてください。"),

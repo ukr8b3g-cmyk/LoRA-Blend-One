@@ -112,38 +112,39 @@ def make_generator(device: torch.device, seed: int) -> torch.Generator:
     return gen
 
 
-def _hist_keep_threshold(values_abs: torch.Tensor, keep_fraction: float, bins: int = 8192) -> float:
-    n = values_abs.numel()
-    keep = max(0, min(n, int(round(float(keep_fraction) * n))))
-    if keep <= 0:
-        return float(values_abs.max().item()) + 1.0
-    if keep >= n:
-        return 0.0
-    hi = float(values_abs.max().item())
-    if hi <= 0:
-        return 0.0
-    hist = torch.histc(values_abs.float(), bins=bins, min=0.0, max=hi)
-    csum = torch.cumsum(hist.flip(0), dim=0)
-    idx = int(torch.searchsorted(csum, torch.tensor(float(keep), device=csum.device)).item())
-    idx = min(max(idx, 0), bins - 1)
-    return hi * (1.0 - (idx + 1) / bins)
-
-
 def ties_sparsify(delta: torch.Tensor, density: float) -> torch.Tensor:
     if density >= 1.0:
         return delta
     if density <= 0.0:
         return torch.zeros_like(delta)
-    abs_delta = delta.abs()
-    # Exact selection for modest tensors, histogram threshold for large layers.
-    if delta.numel() <= 2_000_000:
-        n = delta.numel()
-        keep = max(1, min(n, int(round(density * n))))
-        kth = n - keep + 1
-        tau = float(torch.kthvalue(abs_delta.flatten().float(), kth).values.item())
-    else:
-        tau = _hist_keep_threshold(abs_delta, density)
-    delta.mul_(abs_delta >= tau)
+    n = delta.numel()
+    keep = max(1, int(round(density * n)))
+    if keep >= n:
+        return delta
+
+    magnitudes = delta.abs().reshape(-1)
+    threshold = torch.kthvalue(magnitudes, n - keep + 1).values
+    if threshold.item() == 0:
+        return delta  # All discarded entries are already zero.
+    selected = magnitudes >= threshold
+    excess = int(torch.count_nonzero(selected).item()) - keep
+    # Keep the first occurrences of a tied magnitude in row-major order.
+    # Bound the temporary index array even when every magnitude is identical.
+    block_size = 1 << 20
+    end = n
+    while excess > 0:
+        start = max(0, end - block_size)
+        tied = magnitudes[start:end] == threshold
+        count = int(torch.count_nonzero(tied).item())
+        block = selected[start:end]
+        if count <= excess:
+            block.masked_fill_(tied, False)
+        else:
+            indices = tied.nonzero(as_tuple=True)[0]
+            block[indices[-excess:]] = False
+        excess -= min(count, excess)
+        end = start
+    delta.mul_(selected.view_as(delta))
     return delta
 
 

@@ -6,6 +6,7 @@ from typing import Callable
 
 import torch
 
+from .aliases import align_target_aliases
 from .errors import MergeError
 from .formats import OpenedSources
 from .math_ops import (
@@ -27,12 +28,18 @@ from .math_ops import (
 from .types import LayerReport, MergeReport, MergeSettings, SourceInfo
 
 
-GATE_MARKERS = (".attn.to_gate", ".attn.gate", ".ff.gate", ".mlp.gate", ".gate_proj")
 KREA2_GATE_MARKERS = (".attn.to_gate", ".attn.gate", ".ff.gate", ".mlp.gate")
 
 
 def is_gate_target(target: str) -> bool:
-    return any(marker in target for marker in GATE_MARKERS)
+    return ".gate_proj" in target or _is_krea_gate(target)
+
+
+def _is_krea_gate(target: str, *, attention_only=False) -> bool:
+    markers = KREA2_GATE_MARKERS[:2] if attention_only else KREA2_GATE_MARKERS
+    if target.startswith(("lycoris_", "lora_unet_")):
+        return any(target.endswith(marker.replace(".", "_")) for marker in markers)
+    return any(marker in target for marker in markers)
 
 
 def resolve_weights(raw_percentages: list[float], mode: str = "normalize") -> list[float]:
@@ -287,7 +294,7 @@ def _merge_krea2_sources(infos, weights, settings, warnings, progress, cancel_ch
                 continue
             rank_sum = sum(item[2].rank for item in contributors)
             max_rank = max(item[2].rank for item in contributors)
-            gate = any(marker in target for marker in KREA2_GATE_MARKERS)
+            gate = _is_krea_gate(target)
             device = torch.device("cuda" if settings.device == "cuda" and torch.cuda.is_available() else "cpu")
 
             def run_on(run_device):
@@ -334,7 +341,7 @@ def _merge_krea2_sources(infos, weights, settings, warnings, progress, cancel_ch
                     if gate:
                         mode = settings.krea2_gate_compression
                         compress = mode == "all_gates" or (mode == "attn_to_gate_only" and
-                            any(marker in target for marker in KREA2_GATE_MARKERS[:2]))
+                            _is_krea_gate(target, attention_only=True))
                         rank = max(1, settings.krea2_gate_rank)
                     else:
                         compress = settings.krea2_normal_compression == "max_input_rank"
@@ -371,6 +378,10 @@ def _merge_krea2_sources(infos, weights, settings, warnings, progress, cancel_ch
                 report.gate_conflicts += conflict
             if progress:
                 progress(index + 1, len(targets))
+    if not output:
+        raise MergeError("missing_targets", [info.name for info in infos],
+                         "Krea2 merge produced no output: all target layers were dropped as unmatched.",
+                         source_paths=[str(info.path) for info in infos])
     return output, report
 
 
@@ -399,6 +410,7 @@ def merge_sources(
     if not infos:
         raise ValueError("No LoRAs selected")
     method = resolve_method(settings.method)
+    infos = align_target_aliases(infos, method)
     for info, weight in zip(infos, weights):
         for spec in info.layers.values():
             coefficient = weight * settings.output_scale * spec.effective_scale

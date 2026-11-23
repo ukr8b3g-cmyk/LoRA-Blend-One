@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Iterable
@@ -75,14 +76,12 @@ def _find_style(key: str):
 def _adapter_pattern_value(mapping, target: str):
     if not isinstance(mapping, dict):
         return None
-    if target in mapping:
-        return mapping[target]
-    # PEFT pattern keys are commonly module suffixes. Prefer the longest match.
-    matches = [(len(k), v) for k, v in mapping.items() if isinstance(k, str) and target.endswith(k)]
-    if matches:
-        matches.sort(reverse=True, key=lambda x: x[0])
-        return matches[0][1]
-    return None
+    # PEFT matches the original module path before its checkpoint wrapper is added.
+    module = target.removeprefix("base_model.model.")
+    for pattern, value in mapping.items():
+        if re.match(rf"(.*\.)?({pattern})$", module):
+            return value
+    return mapping.get(module)
 
 
 def _effective_scale(handle, keys: set[str], target: str, rank: int, adapter_config: dict) -> tuple[float, str | None]:

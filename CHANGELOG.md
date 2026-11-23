@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.90.1 — 2026-11-24
+
+- Preserve both LoRA contributions when Qwen Image, Krea2 or SDXL text-encoder adapters use known aliases for the same layer.
+- Match PEFT layer-specific rank and alpha patterns using PEFT's regular-expression and ordering rules.
+- Stop before saving when Krea2 Gate-Aware drops every layer.
+- Keep the requested TIES density when weights have tied magnitudes or extreme outliers.
+
+### Earlier changes included in this release
 
 - Share accepted-prompt tracking between extraction progress/results and blend errors, fixing later jobs queued before execution and stale source names in Legacy/Split/Sources.
 - Preserve fast results received before queue acknowledgement, reject delayed/foreign outputs, and release run listeners/state on completion or removal. No merge math or saved workflow settings changed.

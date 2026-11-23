@@ -2,7 +2,7 @@
 
 # LoRA Blend One
 
-**v0.90 — Still Experimental Node**
+**v0.90.1 — Still Experimental Node**
 
 This node pack is still experimental. Features and model compatibility are under validation.
 
@@ -217,10 +217,11 @@ Inputs should target the same base model and compatible layer names and input/ou
 | Model family | Handling |
 | --- | --- |
 | MOSS-Image Base / SFT | Dedicated detection and key/QKV normalization for Standard LoRAs |
-| Krea2 | Dedicated, explicitly selected Gate-Aware method; ordinary methods also available |
-| FLUX, Qwen Image, Wan, SD-family and other compatible adapters | Generic Standard LoRA factor handling; model-specific key conversion is not provided for these families |
+| Krea2 | Weighted and Gate-Aware blends match known native and Diffusers projection names |
+| Qwen Image / SDXL text encoders | Recognizes common Qwen transformer prefixes and SDXL Kohya/Diffusers text-encoder layer names |
+| FLUX, Wan, SD-family and other compatible adapters | Standard LoRA factors with matching target names and compatible dimensions |
 
-The generic path requires matching target names and shapes. Architecture hints are compatibility checks, not proof of model-specific generation quality. MOSS Base and SFT share a layer layout; this does not guarantee that a LoRA has the same visual effect on both.
+Layers present in only one input follow the selected unmatched-layer policy. Architecture hints help check compatibility. MOSS Base and SFT share a layer layout, and the visual effect of a LoRA can vary between them.
 
 Supported factor forms include `.lora_A/B.weight`, `.lora_down/up.weight`, `.lora.down/up.weight`, named PEFT `.lora_A/B.default.weight`, Diffusers `_lora.down/up.weight`, Transformers `.lora_linear_layer.down/up.weight`, and Mochi-style `.lora_A/B`. Linear factors and standard convolutional factors with a 1×1 up kernel are supported.
 

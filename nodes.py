@@ -32,7 +32,7 @@ from .error_reporting import publish_failure
 
 
 NONE = "(none)"
-VERSION = "0.90"
+VERSION = "0.90.1"
 SOURCE_OPTIONAL_KEYS = ({key for idx in range(3, 9) for key in (f"lora_{idx}", f"weight_{idx}")}
                         | {f"enabled_{idx}" for idx in range(1, 9)})
 
@@ -245,21 +245,22 @@ class LoRABlendOne:
             krea2_normal_compression=kwargs.get("krea2_normal_compression", "off"),
         )
 
-        union_target_count = len(set().union(*(set(i.layers) for i in infos)))
-        progress_bar = comfy_utils.ProgressBar(union_target_count) if comfy_utils else None
-        progress_state = {"done": 0, "last": 0}
+        progress_bar = None
+        last_done = 0
 
         def cancel_check():
             if model_management is not None:
                 model_management.throw_exception_if_processing_interrupted()
 
         def progress(done, total):
-            # Engine reports union-target progress. Map it onto a monotonic Comfy progress bar.
-            if progress_bar is None:
+            nonlocal progress_bar, last_done
+            if comfy_utils is None:
                 return
-            if done > progress_state["last"]:
-                progress_bar.update(done - progress_state["last"])
-                progress_state["last"] = done
+            if progress_bar is None:
+                progress_bar = comfy_utils.ProgressBar(total)
+            if done > last_done:
+                progress_bar.update(done - last_done)
+                last_done = done
 
         try:
             tensors, merge_report = merge_sources(
